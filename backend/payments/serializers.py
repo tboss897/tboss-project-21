@@ -31,7 +31,7 @@ class PaymentReceiptSerializer(serializers.ModelSerializer):
 
 
 class StudentInfoSerializer(serializers.ModelSerializer):
-    wallet_balance = serializers.DecimalField(source='wallet.balance', read_only=True)
+    wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, source='wallet.balance', read_only=True)
     wallet_status = serializers.CharField(source='wallet.status', read_only=True)
     
     class Meta:
