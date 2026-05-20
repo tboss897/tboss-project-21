@@ -56,4 +56,5 @@ class IsSellerAndActive(permissions.BasePermission):
         return (request.user and request.user.is_authenticated and 
                 request.user.role == 'seller' and 
                 request.user.is_active and 
-                request.user.status == 'active')
+                getattr(request.user, 'seller_profile', None) and 
+                request.user.seller_profile.store_status == 'active')
