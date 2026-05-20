@@ -180,11 +180,17 @@ CORS_ALLOW_CREDENTIALS = True
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = int(os.environ.get('REDIS_PORT', 6379))
 REDIS_DB = int(os.environ.get('REDIS_DB', 0))
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
 
 
 # Celery Configuration
-CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
-CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+if REDIS_PASSWORD:
+    CELERY_BROKER_URL = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+    CELERY_RESULT_BACKEND = f'redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+else:
+    CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+    CELERY_RESULT_BACKEND = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -224,6 +230,7 @@ PAYMENT_RATE_LIMIT_PER_MINUTE = int(os.environ.get('PAYMENT_RATE_LIMIT_PER_MINUT
 
 # Firebase Configuration
 FIREBASE_CREDENTIALS_PATH = os.environ.get('FIREBASE_CREDENTIALS_PATH', '')
+FIREBASE_SERVER_KEY = os.environ.get('FIREBASE_SERVER_KEY', '')
 
 
 # SendGrid Configuration
@@ -232,5 +239,7 @@ SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@smartschool
 
 
 # Africa's Talking SMS Configuration
-AT_USERNAME = os.environ.get('AT_USERNAME', '')
-AT_API_KEY = os.environ.get('AT_API_KEY', '')
+AFRICASTALKING_USERNAME = os.environ.get('AFRICASTALKING_USERNAME', os.environ.get('AT_USERNAME', ''))
+AFRICASTALKING_API_KEY = os.environ.get('AFRICASTALKING_API_KEY', os.environ.get('AT_API_KEY', ''))
+AFRICASTALKING_SENDER_ID = os.environ.get('AFRICASTALKING_SENDER_ID', '')
+

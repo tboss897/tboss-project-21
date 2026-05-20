@@ -22,6 +22,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    phone = serializers.CharField(required=False, allow_blank=True, default='')
+    location = serializers.CharField(required=False, allow_blank=True, default='')
+    service_type = serializers.CharField(required=False, allow_blank=True, default='')
     
     class Meta:
         model = User
@@ -29,10 +32,29 @@ class UserCreateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+        phone = validated_data.pop('phone', '')
+        location = validated_data.pop('location', '')
+        service_type = validated_data.pop('service_type', '')
+        
+        from django.db import transaction
+        with transaction.atomic():
+            user = User(**validated_data)
+            user.set_password(password)
+            user.save()
+            
+            if user.role == 'parent':
+                from authentication.profiles import ParentProfile
+                ParentProfile.objects.create(user=user, phone=phone)
+            elif user.role == 'seller':
+                from authentication.profiles import SellerProfile
+                SellerProfile.objects.create(
+                    user=user,
+                    location=location,
+                    service_type=service_type,
+                    store_status='active'
+                )
+            return user
+
 
 
 class UserSuspendSerializer(serializers.Serializer):

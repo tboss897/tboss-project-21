@@ -25,7 +25,45 @@ class PasswordResetSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    phone = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+    service_type = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ['user_id', 'name', 'email', 'role', 'phone', 'location', 'service_type', 'status', 'is_active']
         read_only_fields = ['user_id', 'is_active']
+
+    def get_phone(self, obj):
+        if obj.role == 'parent':
+            try:
+                return obj.parent_profile.phone
+            except Exception:
+                return ''
+        return ''
+
+    def get_location(self, obj):
+        if obj.role == 'seller':
+            try:
+                return obj.seller_profile.location
+            except Exception:
+                return ''
+        return ''
+
+    def get_service_type(self, obj):
+        if obj.role == 'seller':
+            try:
+                return obj.seller_profile.service_type
+            except Exception:
+                return ''
+        return ''
+
+    def get_status(self, obj):
+        if obj.role == 'seller':
+            try:
+                return obj.seller_profile.store_status
+            except Exception:
+                return ''
+        return 'active'
+

@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-import bcrypt
 
 
 class UserManager(BaseUserManager):
@@ -10,7 +9,7 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         if password:
-            user.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            user.set_password(password)  # Uses Django's built-in PBKDF2/bcrypt hashing
         user.save(using=self._db)
         return user
 
@@ -28,6 +27,11 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    """
+    Core user model for parent, seller, and admin roles.
+    Students authenticate separately via matric_no + PIN.
+    Role-specific fields live in ParentProfile / SellerProfile.
+    """
     ROLE_CHOICES = [
         ('parent', 'Parent'),
         ('seller', 'Seller'),
@@ -37,18 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     user_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    password_hash = models.CharField(max_length=255)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
-    
-    # For parents only
-    phone = models.CharField(max_length=20, blank=True, null=True)
-    monitoring_enabled = models.BooleanField(default=False)
-    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    
-    # For sellers only
-    location = models.CharField(max_length=100, blank=True, null=True)
-    service_type = models.CharField(max_length=50, blank=True, null=True)
-    status = models.CharField(max_length=20, default='active', blank=True, null=True)
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -60,11 +53,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name', 'role']
     
-    def set_password(self, password):
-        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
-    def check_password(self, password):
-        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+    class Meta:
+        db_table = 'users'
     
     def __str__(self):
         return f"{self.email} ({self.role})"

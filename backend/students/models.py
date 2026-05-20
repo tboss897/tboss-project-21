@@ -6,6 +6,13 @@ from django.conf import settings
 
 class Student(models.Model):
     student_id = models.AutoField(primary_key=True)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='student_profile'
+    )
     full_name = models.CharField(max_length=100)
     matric_no = models.CharField(max_length=50, unique=True)
     department = models.CharField(max_length=100, blank=True, null=True)
@@ -13,6 +20,7 @@ class Student(models.Model):
     email = models.EmailField(unique=True)
     pin_hash = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
     
     def set_pin(self, pin):
         import bcrypt
@@ -24,6 +32,31 @@ class Student(models.Model):
     
     def __str__(self):
         return f"{self.full_name} ({self.matric_no})"
+
+
+class ParentStudent(models.Model):
+    """
+    Linking model to associate a parent User with a Student they monitor.
+    """
+    parent = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='monitored_students'
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name='linked_parents'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'parent_students'
+        unique_together = ('parent', 'student')
+
+    def __str__(self):
+        return f"Parent {self.parent.name} -> Student {self.student.full_name}"
+
 
 
 class QRCode(models.Model):

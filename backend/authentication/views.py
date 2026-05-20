@@ -13,6 +13,22 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
+from rest_framework_simplejwt.tokens import RefreshToken
+import redis
+
+# Redis client for lockout tracking
+try:
+    r_client = redis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        db=settings.REDIS_DB,
+        password=getattr(settings, 'REDIS_PASSWORD', None),
+        decode_responses=True
+    )
+except Exception:
+    r_client = None
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
@@ -21,6 +37,21 @@ def login_view(request):
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         role = serializer.validated_data['role']
+        
+        lockout_key = f"login_lockout:{email}"
+        attempts_key = f"login_attempts:{email}"
+        
+        # Check lockout status
+        if r_client:
+            try:
+                if r_client.get(lockout_key):
+                    ttl = r_client.ttl(lockout_key)
+                    return Response(
+                        {'error': f'Account locked due to too many failed attempts. Try again in {ttl} seconds.'},
+                        status=status.HTTP_429_TOO_MANY_REQUESTS
+                    )
+            except Exception:
+                pass
         
         try:
             user = User.objects.get(email=email, role=role)
@@ -31,17 +62,38 @@ def login_view(request):
                         status=status.HTTP_403_FORBIDDEN
                     )
                 
-                token_view = CustomTokenObtainPairView()
-                token_request = request._request
-                token_request.data = {'email': email, 'password': password}
-                response = token_view.post(token_request)
+                # Clear attempts on success
+                if r_client:
+                    try:
+                        r_client.delete(attempts_key)
+                        r_client.delete(lockout_key)
+                    except Exception:
+                        pass
+                
+                # Generate simplejwt token directly
+                refresh = RefreshToken.for_user(user)
+                refresh['role'] = user.role
+                refresh['user_id'] = user.user_id
+                refresh['name'] = user.name
                 
                 return Response({
-                    'access': response.data['access'],
-                    'refresh': response.data['refresh'],
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
                     'user': UserSerializer(user).data
                 }, status=status.HTTP_200_OK)
             else:
+                # Increment failed attempts
+                if r_client:
+                    try:
+                        attempts = r_client.incr(attempts_key)
+                        if attempts == 1:
+                            r_client.expire(attempts_key, 900)  # 15 mins window
+                        if attempts >= 3:
+                            r_client.setex(lockout_key, 900, "locked")
+                            r_client.delete(attempts_key)
+                    except Exception:
+                        pass
+                
                 return Response(
                     {'error': 'Invalid credentials'},
                     status=status.HTTP_401_UNAUTHORIZED
@@ -53,6 +105,7 @@ def login_view(request):
             )
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['POST'])

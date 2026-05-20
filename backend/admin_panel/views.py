@@ -26,7 +26,7 @@ def admin_dashboard(request):
     total_transactions_today = transactions_today.aggregate(total=Sum('amount'))['total'] or 0
     
     total_balance = Wallet.objects.aggregate(total=Sum('balance'))['total'] or 0
-    active_sellers = User.objects.filter(role='seller', status='active').count()
+    active_sellers = User.objects.filter(role='seller', seller_profile__store_status='active').count()
     
     stats = {
         'total_students': total_students,
