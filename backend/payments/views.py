@@ -115,7 +115,21 @@ def payment_process(request):
             )
         
         # Check daily spending limit if parental monitoring is enabled
-        # TODO: Implement daily spending limit check
+        if wallet.monitoring_enabled and wallet.daily_limit is not None:
+            from django.db.models import Sum
+            today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            today_spent = Transaction.objects.filter(
+                wallet=wallet,
+                type='payment',
+                payment_status='successful',
+                transaction_date__gte=today_start
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            if today_spent + amount > wallet.daily_limit:
+                return Response(
+                    {'error': f'Daily spending limit of ₦{wallet.daily_limit:,.2f} exceeded. Remaining: ₦{max(0, wallet.daily_limit - today_spent):,.2f}.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Acquire deduplication lock
         from authentication.rate_limiting import DeduplicationLock

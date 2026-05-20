@@ -13,6 +13,8 @@ class Wallet(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE, related_name='wallet')
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    monitoring_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

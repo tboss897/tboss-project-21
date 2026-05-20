@@ -71,8 +71,20 @@ def wallet_set_limit(request, wallet_id):
     serializer = WalletLimitSerializer(data=request.data)
     
     if serializer.is_valid():
-        # Update parent's monitoring settings
-        # TODO: Implement parent-student linking logic
+        # If the requester is a parent, verify they are linked to this student
+        if request.user.role == 'parent':
+            from students.models import ParentStudent
+            if not ParentStudent.objects.filter(parent=request.user, student=wallet.student).exists():
+                return Response(
+                    {'error': 'You are not linked to this student and cannot set limits.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
+        # Update settings on the wallet
+        wallet.daily_limit = serializer.validated_data.get('daily_limit', wallet.daily_limit)
+        wallet.monitoring_enabled = serializer.validated_data.get('monitoring_enabled', wallet.monitoring_enabled)
+        wallet.save()
+        
         return Response(
             {'message': 'Wallet limit settings updated successfully'},
             status=status.HTTP_200_OK
