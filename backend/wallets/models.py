@@ -19,25 +19,30 @@ class Wallet(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def can_debit(self, amount):
-        return self.status == 'active' and self.balance >= amount
+        from decimal import Decimal
+        return self.status == 'active' and self.balance >= Decimal(str(amount))
     
     def debit(self, amount):
         from django.db import transaction
+        from decimal import Decimal
+        amount_dec = Decimal(str(amount))
         with transaction.atomic():
             wallet = Wallet.objects.select_for_update().get(pk=self.pk)
-            if not wallet.can_debit(amount):
+            if not wallet.can_debit(amount_dec):
                 raise ValueError("Insufficient balance or wallet not active")
-            wallet.balance -= amount
+            wallet.balance -= amount_dec
             wallet.save()
             self.balance = wallet.balance
     
     def credit(self, amount):
-        if amount <= 0:
+        from decimal import Decimal
+        amount_dec = Decimal(str(amount))
+        if amount_dec <= 0:
             raise ValueError("Credit amount must be positive")
         from django.db import transaction
         with transaction.atomic():
             wallet = Wallet.objects.select_for_update().get(pk=self.pk)
-            wallet.balance += amount
+            wallet.balance += amount_dec
             wallet.save()
             self.balance = wallet.balance
     

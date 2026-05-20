@@ -40,11 +40,11 @@ class TransactionModelTest(TestCase):
             wallet=self.wallet,
             seller=self.seller,
             amount=500.00,
-            transaction_type='payment',
+            type='payment',
             payment_status='successful'
         )
         self.assertEqual(transaction.amount, 500.00)
-        self.assertEqual(transaction.transaction_type, 'payment')
+        self.assertEqual(transaction.type, 'payment')
         self.assertEqual(transaction.payment_status, 'successful')
 
 
