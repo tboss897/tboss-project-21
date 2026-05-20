@@ -94,3 +94,48 @@ def regenerate_qr_code(request, student_id):
     
     serializer = QRCodeSerializer(new_qr)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([IsParent])
+def link_parent(request):
+    """
+    Link a parent user to a student's profile.
+    Requires matriculation number and wallet ID.
+    """
+    matric_no = request.data.get('matric_no')
+    wallet_id = request.data.get('wallet_id')
+    
+    if not matric_no or not wallet_id:
+        return Response(
+            {'error': 'Both matric_no and wallet_id are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    try:
+        student = Student.objects.get(matric_no=matric_no, wallet__wallet_id=wallet_id)
+    except Student.DoesNotExist:
+        return Response(
+            {'error': 'Invalid matriculation number or wallet ID. Please check the details and try again.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+        
+    link, created = ParentStudent.objects.get_or_create(parent=request.user, student=student)
+    
+    if created:
+        message = 'Student successfully linked to your account.'
+    else:
+        message = 'Student is already linked to your account.'
+        
+    return Response(
+        {
+            'message': message,
+            'student': {
+                'student_id': student.student_id,
+                'full_name': student.full_name,
+                'matric_no': student.matric_no
+            }
+        },
+        status=status.HTTP_200_OK
+    )
+
