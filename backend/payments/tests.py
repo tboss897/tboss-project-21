@@ -5,6 +5,7 @@ from rest_framework import status
 from .models import Transaction
 from students.models import Student
 from wallets.models import Wallet
+from authentication.profiles import SellerProfile
 
 User = get_user_model()
 
@@ -56,6 +57,12 @@ class PaymentAPITest(APITestCase):
             name='Test Seller',
             role='seller'
         )
+        SellerProfile.objects.create(
+            user=self.seller_user,
+            location='Cafeteria',
+            service_type='Food',
+            store_status='active'
+        )
         self.student_user = User.objects.create_user(
             email='student@example.com',
             password='testpass123',
@@ -68,6 +75,8 @@ class PaymentAPITest(APITestCase):
             department='Computer Science',
             level='100'
         )
+        self.student.set_pin('123456')
+        self.student.save()
         self.wallet = Wallet.objects.create(
             student=self.student,
             balance=1000.00,
