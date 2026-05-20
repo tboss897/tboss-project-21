@@ -16,7 +16,8 @@ def wallet_detail(request, wallet_id):
     wallet = get_object_or_404(Wallet, wallet_id=wallet_id)
     
     if request.user.role == 'student':
-        if wallet.student.student_id != request.user.student.student_id:
+        student_profile = getattr(request.user, 'student', None) or getattr(request.user, 'student_profile', None)
+        if not student_profile or wallet.student.student_id != student_profile.student_id:
             return Response(
                 {'error': 'You do not have permission to view this wallet.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -40,7 +41,8 @@ def wallet_topup(request, wallet_id):
     
     # If student, verify they are topping up their own wallet
     if request.user.role == 'student':
-        if wallet.student.student_id != request.user.student.student_id:
+        student_profile = getattr(request.user, 'student', None) or getattr(request.user, 'student_profile', None)
+        if not student_profile or wallet.student.student_id != student_profile.student_id:
             return Response(
                 {'error': 'You can only top up your own wallet.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -79,7 +81,8 @@ def wallet_transactions(request, wallet_id):
     wallet = get_object_or_404(Wallet, wallet_id=wallet_id)
     
     if request.user.role == 'student':
-        if wallet.student.student_id != request.user.student.student_id:
+        student_profile = getattr(request.user, 'student', None) or getattr(request.user, 'student_profile', None)
+        if not student_profile or wallet.student.student_id != student_profile.student_id:
             return Response(
                 {'error': 'You do not have permission to view these transactions.'},
                 status=status.HTTP_403_FORBIDDEN

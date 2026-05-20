@@ -1,584 +1,422 @@
-{
-  "project": {
-    "name": "SmartSchool Wallet",
-    "version": "1.0.0",
-    "description": "A cloud-based e-wallet system designed for secondary school students, enabling secure cashless transactions via QR code cards, with parental monitoring and administrative oversight.",
-    "tagline": "Safe. Smart. Cashless.",
-    "mockups_path": "/home/zeus/Templates/new/tboss-project-21/mockups/",
-    "status": "active",
-    "removed_features": ["offline_mode", "offline_qr_caching", "offline_sync"]
-  },
+SmartSchool Wallet — Implementation Plan
+Overview
+Goal: Build a production-grade e-wallet system for secondary schools with:
 
-  "branding": {
-    "app_name": "SmartSchool Wallet",
-    "short_name": "SSWallet",
-    "color_palette": {
-      "primary": "#1F4E79",
-      "primary_light": "#2E75B6",
-      "accent": "#00B4D8",
-      "success": "#27AE60",
-      "warning": "#F39C12",
-      "danger": "#E74C3C",
-      "background": "#F4F8FC",
-      "surface": "#FFFFFF",
-      "text_primary": "#1A1A2E",
-      "text_secondary": "#6B7280",
-      "border": "#E5E7EB"
-    },
-    "typography": {
-      "font_family": "Inter, Arial, sans-serif",
-      "heading_weight": 700,
-      "body_weight": 400,
-      "base_size": "16px"
-    },
-    "logo_concept": "Shield icon merged with a QR code pattern, in primary blue gradient"
-  },
+Web app (Phase 1) → Admin dashboard + Seller/Store dashboard (desktop-optimized)
+Mobile apps (Phase 2 — deferred) → Parent app, Student app, Seller app (QR scanner)
+Current state: A partially scaffolded Django backend + Vite/React frontend exists. Models, views, serializers, and page stubs are in place but contain structural issues and incomplete features.
 
-  "tech_stack": {
-    "frontend": {
-      "framework": "React.js (v18+)",
-      "styling": "Tailwind CSS + custom CSS variables",
-      "routing": "React Router v6",
-      "state_management": "React Context API + useReducer",
-      "http_client": "Axios",
-      "qr_scanner": "react-qr-reader",
-      "qr_generator": "qrcode.react",
-      "charts": "Recharts",
-      "notifications": "react-hot-toast",
-      "icons": "Lucide React"
-    },
-    "backend": {
-      "language": "Python 3.11+",
-      "framework": "Django 4.2 + Django REST Framework",
-      "authentication": "JWT (PyJWT + djangorestframework-simplejwt)",
-      "password_hashing": "bcrypt (via django.contrib.auth)",
-      "qr_generation": "qrcode library (Python)",
-      "qr_signing": "HMAC-SHA256",
-      "task_queue": "Celery + Redis (notifications only)",
-      "api_versioning": "/api/v1/"
-    },
-    "database": {
-      "primary": "MySQL 8.0 (Cloud SQL)",
-      "realtime_sync": "Firebase Realtime Database (balance & notification push)",
-      "cache": "Redis (session store, rate limiting)"
-    },
-    "infrastructure": {
-      "hosting": "Google Cloud Run (containerised Django)",
-      "static_assets": "Google Cloud Storage + CDN",
-      "secrets": "Google Cloud Secret Manager",
-      "monitoring": "Cloud Logging + Cloud Monitoring"
-    }
-  },
+Codebase Audit — Issues Found
+Backend Issues
+Issue	Location	Severity
+User model bypasses Django's auth system — uses raw bcrypt instead of set_password()/check_password(), breaking simplejwt token generation	authentication/models.py	🔴 Critical
+Student model is detached from User — students can't log in via JWT since they're not in the auth system	students/models.py	🔴 Critical
+No parent↔student linking table — parents.student_id in the spec is an FK but the User model stores parent fields inline with no actual relationship	authentication/models.py	🔴 Critical
+login_view manually invokes CustomTokenObtainPairView incorrectly — request._request.data is immutable in DRF	authentication/views.py	🟡 Major
+wallet.debit() / wallet.credit() call self.save() outside select_for_update() — race condition under concurrent payments	wallets/models.py	🟡 Major
+REDIS_PASSWORD referenced in rate_limiting.py but never defined in settings.py	authentication/rate_limiting.py	🟡 Major
+Notifications tasks.py references settings.FIREBASE_SERVER_KEY and settings.AFRICASTALKING_* which don't exist in settings	notifications/tasks.py	🟠 Minor
+No student_detail endpoint (admin viewing a single student's full profile + wallet + transactions)	students/views.py	🟠 Minor
+Docker compose uses Postgres but requirements.txt includes both mysqlclient and psycopg2-binary	Root config	🟠 Minor
+QRCode.generate_qr_data() uses hmac.new (should be hmac.new → actually it's fine but the method name in the model is wrong: hmac.new should be verified)	students/models.py L39	🟠 Minor
+Frontend Issues
+Issue	Severity
+No route guards — any user can navigate to any dashboard regardless of role	🔴 Critical
+No ProtectedRoute component	🔴 Critical
+Missing key dependencies: recharts, react-qr-reader, qrcode.react, react-hot-toast	🟡 Major
+Tailwind config doesn't match the branding color palette from the spec	🟡 Major
+Pages are basic stubs with placeholder content — no real data fetching or forms	🟡 Major
+No StudentDetail page (route /admin/students/:id referenced in App.jsx is missing)	🟠 Minor
+Architecture Decisions
+1. Monorepo Structure
+tboss-project-21/
+├── backend/                    # Django REST API (unchanged root)
+│   ├── config/                 # Django project settings
+│   ├── authentication/         # Custom User model + JWT + RBAC
+│   ├── students/               # Student + QRCode models
+│   ├── wallets/                # Wallet model + balance ops
+│   ├── payments/               # Transaction processing
+│   ├── admin_panel/            # Admin-specific aggregation endpoints
+│   └── notifications/          # Celery tasks for FCM/email/SMS
+├── frontend/                   # Vite + React web app (Admin + Store web)
+│   └── src/
+│       ├── components/         # Shared UI library
+│       ├── pages/              # Route-level pages by role
+│       ├── context/            # Auth + global state
+│       ├── hooks/              # Custom data-fetching hooks
+│       ├── api/                # Axios instance + endpoint modules
+│       └── utils/              # Formatters, validators, constants
+├── mobile/                     # React Native (Expo) — Parent, Student, Seller
+│   └── src/
+│       ├── components/
+│       ├── screens/
+│       ├── navigation/
+│       ├── context/
+│       ├── api/
+│       └── utils/
+├── mockups/
+├── docker-compose.yml
+└── prompt.txt
+IMPORTANT
 
-  "user_roles": [
-    {
-      "id": "student",
-      "label": "Student",
-      "description": "Primary wallet owner. Does NOT use a device — interacts via physical QR code card only.",
-      "has_mobile_app": false,
-      "has_web_access": true,
-      "dashboard": "student_dashboard",
-      "registration": "admin_initiated",
-      "note": "Students can optionally log in to view their own balance and history on the web portal."
-    },
-    {
-      "id": "parent",
-      "label": "Parent / Guardian",
-      "description": "Funds student wallet remotely. Optionally monitors spending.",
-      "has_mobile_app": true,
-      "has_web_access": true,
-      "dashboard": "parent_dashboard",
-      "registration": "self_register_then_admin_links"
-    },
-    {
-      "id": "seller",
-      "label": "Campus Vendor / Seller",
-      "description": "Scans student QR codes and processes payments at point of sale.",
-      "has_mobile_app": true,
-      "has_web_access": false,
-      "dashboard": "seller_dashboard",
-      "registration": "admin_initiated"
-    },
-    {
-      "id": "admin",
-      "label": "School Administrator",
-      "description": "Full system oversight — manages users, wallets, transactions, and reports.",
-      "has_mobile_app": false,
-      "has_web_access": true,
-      "dashboard": "admin_dashboard",
-      "registration": "system_seeded"
-    }
-  ],
+Why React Native (Expo)? The spec calls for mobile apps for Parent, Seller, and optionally Student. React Native lets us share the same API client code, auth logic, and business rules with the web frontend. Expo simplifies camera access (QR scanning) and push notifications — the two main mobile-specific features.
 
-  "screens": {
-    "auth": [
-      {
-        "id": "screen_login",
-        "name": "Login",
-        "route": "/login",
-        "roles": ["student", "parent", "seller", "admin"],
-        "mockup_file": "auth/login.png",
-        "description": "Unified login page with role selector. Clean, minimal card layout centered on screen.",
-        "components": ["AppLogo","RoleSelector","UsernameInput","PasswordInput","LoginButton","ForgotPasswordLink","ErrorBanner","LockoutNotice"],
-        "states": ["idle", "loading", "error_invalid", "error_locked"],
-        "validations": ["Email/username required","Password required","Role must be selected"],
-        "api_call": "POST /api/v1/auth/login/"
-      },
-      {
-        "id": "screen_forgot_password",
-        "name": "Forgot Password",
-        "route": "/forgot-password",
-        "roles": ["parent", "seller", "admin"],
-        "mockup_file": "auth/forgot_password.png",
-        "components": ["AppLogo","EmailInput","SendResetButton","SuccessBanner","BackToLoginLink"],
-        "api_call": "POST /api/v1/auth/password/reset/"
-      }
-    ],
-    "student": [
-      {
-        "id": "screen_student_dashboard",
-        "name": "Student Dashboard",
-        "route": "/student/dashboard",
-        "roles": ["student"],
-        "mockup_file": "student/dashboard.png",
-        "description": "Overview of wallet balance, QR code display, and recent transactions. Mobile-first.",
-        "layout": "single_column_scrollable",
-        "components": ["TopBar","WalletBalanceCard","QRCodeDisplay","RecentTransactionsList","ViewAllTransactionsLink","LowBalanceAlert"],
-        "data_required": {
-          "wallet_balance": "GET /api/v1/wallets/{wallet_id}/",
-          "qr_code": "GET /api/v1/students/{student_id}/qr/",
-          "recent_transactions": "GET /api/v1/wallets/{wallet_id}/transactions/?limit=5"
-        }
-      },
-      {
-        "id": "screen_student_transactions",
-        "name": "Transaction History",
-        "route": "/student/transactions",
-        "roles": ["student"],
-        "mockup_file": "student/transaction_history.png",
-        "components": ["BackButton","PageTitle","DateRangeFilter","StatusFilter","TransactionTable","PaginationControls","EmptyState"],
-        "data_required": { "transactions": "GET /api/v1/wallets/{wallet_id}/transactions/" }
-      },
-      {
-        "id": "screen_student_profile",
-        "name": "Student Profile",
-        "route": "/student/profile",
-        "roles": ["student"],
-        "mockup_file": "student/profile.png",
-        "components": ["ProfileAvatar","DisplayFields","ChangePINButton","SaveButton"],
-        "api_call": "PUT /api/v1/students/{student_id}/"
-      }
-    ],
-    "parent": [
-      {
-        "id": "screen_parent_dashboard",
-        "name": "Parent Dashboard",
-        "route": "/parent/dashboard",
-        "roles": ["parent"],
-        "mockup_file": "parent/dashboard.png",
-        "layout": "card_grid",
-        "components": ["TopBar","ChildSelectorDropdown","WalletSummaryCard","FundWalletButton","SpendingChart","MonitoringToggleCard","RecentTransactionsMini","QuickStats"],
-        "data_required": {
-          "wallet": "GET /api/v1/wallets/{wallet_id}/",
-          "transactions": "GET /api/v1/wallets/{wallet_id}/transactions/?limit=3",
-          "monitoring_settings": "GET /api/v1/wallets/{wallet_id}/limit/"
-        }
-      },
-      {
-        "id": "modal_fund_wallet",
-        "name": "Fund Wallet Modal",
-        "type": "modal",
-        "mockup_file": "parent/fund_wallet_modal.png",
-        "components": ["AmountInput","QuickAmountChips","CurrentBalanceDisplay","ConfirmButton","ConfirmationStep","SuccessState","ErrorState"],
-        "api_call": "POST /api/v1/wallets/{wallet_id}/topup/"
-      },
-      {
-        "id": "screen_parent_transactions",
-        "name": "Transaction History",
-        "route": "/parent/transactions",
-        "roles": ["parent"],
-        "mockup_file": "parent/transaction_history.png",
-        "components": ["SearchBar","DateRangeFilter","StatusFilter","TransactionTable","ExportButton","PaginationControls"],
-        "data_required": { "transactions": "GET /api/v1/wallets/{wallet_id}/transactions/" }
-      },
-      {
-        "id": "screen_parent_monitoring",
-        "name": "Monitoring Settings",
-        "route": "/parent/monitoring",
-        "roles": ["parent"],
-        "mockup_file": "parent/monitoring_settings.png",
-        "components": ["MonitoringToggle","DailySpendingLimitInput","AlertPreferences","NotificationChannels","SaveSettingsButton"],
-        "api_call": "PUT /api/v1/wallets/{wallet_id}/limit/"
-      },
-      {
-        "id": "screen_parent_profile",
-        "name": "Parent Profile",
-        "route": "/parent/profile",
-        "roles": ["parent"],
-        "mockup_file": "parent/profile.png",
-        "components": ["ProfileAvatar","EditableFields","ChangePasswordSection","LinkedChildrenList","SaveButton"]
-      }
-    ],
-    "seller": [
-      {
-        "id": "screen_seller_dashboard",
-        "name": "Seller Home / QR Scanner",
-        "route": "/seller/dashboard",
-        "roles": ["seller"],
-        "mockup_file": "seller/scanner.png",
-        "layout": "full_screen_scanner",
-        "components": ["TopBar","QRScannerViewfinder","ScanInstructionText","ManualEntryFallbackLink","ScanResultCard","AmountInput","ProcessPaymentButton","PaymentStatusOverlay"],
-        "flow": [
-          "Scan QR → system identifies student",
-          "Display student name + current balance",
-          "Seller enters amount",
-          "System checks balance >= amount",
-          "If sufficient: debit → show receipt",
-          "If insufficient: show decline message"
-        ],
-        "api_calls": ["POST /api/v1/payments/scan/","POST /api/v1/payments/process/"]
-      },
-      {
-        "id": "screen_seller_manual_entry",
-        "name": "Manual Student ID Entry",
-        "route": "/seller/manual",
-        "roles": ["seller"],
-        "mockup_file": "seller/manual_entry.png",
-        "components": ["BackButton","MatricNumberInput","LookupButton","StudentPreviewCard","AmountInput","ProcessPaymentButton"],
-        "api_call": "POST /api/v1/payments/scan/"
-      },
-      {
-        "id": "screen_receipt",
-        "name": "Payment Receipt",
-        "type": "overlay",
-        "mockup_file": "seller/receipt.png",
-        "components": ["StatusIcon","TransactionAmount","StudentName","TransactionID","Timestamp","RemainingBalance","DoneButton"]
-      },
-      {
-        "id": "screen_seller_history",
-        "name": "Seller Transaction Log",
-        "route": "/seller/history",
-        "roles": ["seller"],
-        "mockup_file": "seller/history.png",
-        "components": ["DayTotalSummaryCard","TransactionList","DateFilter"],
-        "data_required": { "transactions": "GET /api/v1/payments/?seller_id={seller_id}" }
-      }
-    ],
-    "admin": [
-      {
-        "id": "screen_admin_dashboard",
-        "name": "Admin Dashboard",
-        "route": "/admin/dashboard",
-        "roles": ["admin"],
-        "mockup_file": "admin/dashboard.png",
-        "layout": "sidebar_plus_content",
-        "components": ["Sidebar","TopBar","KPICards","TransactionVolumeChart","TopVendorsTable","RecentActivityFeed","QuickActions"],
-        "data_required": { "dashboard_stats": "GET /api/v1/admin/dashboard/" }
-      },
-      {
-        "id": "screen_admin_students",
-        "name": "Student Management",
-        "route": "/admin/students",
-        "roles": ["admin"],
-        "mockup_file": "admin/students.png",
-        "components": ["PageTitle","RegisterStudentButton","SearchBar","DepartmentFilter","LevelFilter","StatusFilter","StudentTable","BulkImportCSVButton","PaginationControls"],
-        "api_calls": ["GET /api/v1/students/","POST /api/v1/students/","PUT /api/v1/students/{id}/","PUT /api/v1/students/{id}/status/","POST /api/v1/students/{id}/qr/regenerate/"]
-      },
-      {
-        "id": "modal_register_student",
-        "name": "Register Student Modal",
-        "type": "modal",
-        "mockup_file": "admin/register_student_modal.png",
-        "components": ["FullNameInput","MatricNumberInput","DepartmentSelect","LevelSelect","EmailInput","ParentAccountLinker","SubmitButton","SuccessState"],
-        "api_calls": ["POST /api/v1/students/","GET /api/v1/students/{id}/qr/"]
-      },
-      {
-        "id": "screen_admin_student_detail",
-        "name": "Student Detail Page",
-        "route": "/admin/students/:id",
-        "roles": ["admin"],
-        "mockup_file": "admin/student_detail.png",
-        "components": ["StudentProfileCard","WalletCard","LinkedParentCard","TransactionHistoryTable","ActionButtons"]
-      },
-      {
-        "id": "screen_admin_sellers",
-        "name": "Seller Management",
-        "route": "/admin/sellers",
-        "roles": ["admin"],
-        "mockup_file": "admin/sellers.png",
-        "components": ["RegisterSellerButton","SellerTable","StatusFilter","ActionMenu"],
-        "api_calls": ["GET /api/v1/admin/users/?role=seller","POST /api/v1/admin/users/","PUT /api/v1/admin/users/{id}/suspend/"]
-      },
-      {
-        "id": "screen_admin_transactions",
-        "name": "Transaction Monitor",
-        "route": "/admin/transactions",
-        "roles": ["admin"],
-        "mockup_file": "admin/transactions.png",
-        "components": ["LiveTransactionFeed","SearchBar","DateRangeFilter","StatusFilter","VendorFilter","TransactionTable","ExportButton","PaginationControls"],
-        "data_required": { "transactions": "GET /api/v1/admin/transactions/" }
-      },
-      {
-        "id": "screen_admin_reports",
-        "name": "Reports",
-        "route": "/admin/reports",
-        "roles": ["admin"],
-        "mockup_file": "admin/reports.png",
-        "components": ["ReportTypeSelector","DateRangePicker","AdditionalFilters","GenerateReportButton","ReportPreviewTable","DownloadButtons"],
-        "api_call": "POST /api/v1/admin/reports/"
-      },
-      {
-        "id": "screen_admin_settings",
-        "name": "System Settings",
-        "route": "/admin/settings",
-        "roles": ["admin"],
-        "mockup_file": "admin/settings.png",
-        "components": ["LowBalanceAlertThresholdInput","DefaultTransactionLimitInput","NotificationSettings","QRCodeStyleSettings","SystemMaintenanceModeToggle","SaveButton"]
-      }
-    ]
-  },
+2. Database: Stick with PostgreSQL
+The Docker compose already uses Postgres. The spec says MySQL but since the project is already wired to Postgres via psycopg2-binary and the ORM abstracts the difference, we'll keep Postgres. It's superior for DECIMAL precision, select_for_update(), and JSON fields.
 
-  "api_reference": {
-    "base_url": "/api/v1",
-    "auth_header": "Authorization: Bearer <access_token>",
-    "endpoints": {
-      "auth": {
-        "login":          { "method": "POST", "path": "/auth/login/",           "auth": false },
-        "logout":         { "method": "POST", "path": "/auth/logout/",          "auth": true  },
-        "token_refresh":  { "method": "POST", "path": "/auth/token/refresh/",   "auth": true  },
-        "password_reset": { "method": "POST", "path": "/auth/password/reset/",  "auth": false }
-      },
-      "students": {
-        "list":       { "method": "GET",    "path": "/students/",                         "roles": ["admin"] },
-        "create":     { "method": "POST",   "path": "/students/",                         "roles": ["admin"] },
-        "retrieve":   { "method": "GET",    "path": "/students/{id}/",                    "roles": ["admin","parent"] },
-        "update":     { "method": "PUT",    "path": "/students/{id}/",                    "roles": ["admin"] },
-        "deactivate": { "method": "DELETE", "path": "/students/{id}/",                    "roles": ["admin"] },
-        "get_qr":     { "method": "GET",    "path": "/students/{id}/qr/",                 "roles": ["admin","student"] },
-        "regen_qr":   { "method": "POST",   "path": "/students/{id}/qr/regenerate/",      "roles": ["admin"] }
-      },
-      "wallets": {
-        "detail":       { "method": "GET",  "path": "/wallets/{id}/",              "roles": ["student","parent","admin"] },
-        "topup":        { "method": "POST", "path": "/wallets/{id}/topup/",        "roles": ["parent","admin"] },
-        "transactions": { "method": "GET",  "path": "/wallets/{id}/transactions/", "roles": ["student","parent","admin"] },
-        "set_limit":    { "method": "PUT",  "path": "/wallets/{id}/limit/",        "roles": ["parent","admin"] },
-        "set_status":   { "method": "PUT",  "path": "/wallets/{id}/status/",       "roles": ["admin"] }
-      },
-      "payments": {
-        "scan":    { "method": "POST", "path": "/payments/scan/",     "roles": ["seller"] },
-        "process": { "method": "POST", "path": "/payments/process/",  "roles": ["seller"] },
-        "receipt": { "method": "GET",  "path": "/payments/{txn_id}/", "roles": ["seller","admin"] }
-      },
-      "admin": {
-        "dashboard":    { "method": "GET",  "path": "/admin/dashboard/",          "roles": ["admin"] },
-        "users_list":   { "method": "GET",  "path": "/admin/users/",              "roles": ["admin"] },
-        "suspend":      { "method": "PUT",  "path": "/admin/users/{id}/suspend/", "roles": ["admin"] },
-        "transactions": { "method": "GET",  "path": "/admin/transactions/",       "roles": ["admin"] },
-        "reports":      { "method": "POST", "path": "/admin/reports/",            "roles": ["admin"] }
-      }
-    }
-  },
+3. Deployment: Fully Managed (No Docker)
+No Docker required — everything runs on managed platforms.
 
-  "database_schema": {
-    "tables": {
-      "students": {
-        "student_id":  "INT PRIMARY KEY AUTO_INCREMENT",
-        "full_name":   "VARCHAR(100) NOT NULL",
-        "matric_no":   "VARCHAR(50) UNIQUE NOT NULL",
-        "department":  "VARCHAR(100)",
-        "level":       "VARCHAR(20)",
-        "email":       "VARCHAR(100) UNIQUE NOT NULL",
-        "qr_code":     "VARCHAR(255)",
-        "pin_hash":    "VARCHAR(255) NOT NULL",
-        "created_at":  "DATETIME DEFAULT CURRENT_TIMESTAMP"
-      },
-      "parents": {
-        "parent_id":          "INT PRIMARY KEY AUTO_INCREMENT",
-        "full_name":          "VARCHAR(100) NOT NULL",
-        "phone":              "VARCHAR(20)",
-        "email":              "VARCHAR(100) UNIQUE NOT NULL",
-        "password_hash":      "VARCHAR(255) NOT NULL",
-        "student_id":         "INT FK→students.student_id",
-        "monitoring_enabled": "BOOLEAN DEFAULT FALSE",
-        "daily_limit":        "DECIMAL(10,2) DEFAULT NULL"
-      },
-      "sellers": {
-        "seller_id":    "INT PRIMARY KEY AUTO_INCREMENT",
-        "name":         "VARCHAR(100) NOT NULL",
-        "location":     "VARCHAR(100)",
-        "service_type": "VARCHAR(50)",
-        "email":        "VARCHAR(100) UNIQUE NOT NULL",
-        "password_hash":"VARCHAR(255) NOT NULL",
-        "status":       "VARCHAR(20) DEFAULT 'active'"
-      },
-      "wallet": {
-        "wallet_id":  "INT PRIMARY KEY AUTO_INCREMENT",
-        "student_id": "INT FK→students.student_id",
-        "balance":    "DECIMAL(10,2) DEFAULT 0.00",
-        "status":     "VARCHAR(20) DEFAULT 'active'",
-        "updated_at": "DATETIME AUTO UPDATE"
-      },
-      "transactions": {
-        "transaction_id":   "INT PRIMARY KEY AUTO_INCREMENT",
-        "wallet_id":        "INT FK→wallet.wallet_id",
-        "seller_id":        "INT FK→sellers.seller_id NULLABLE",
-        "amount":           "DECIMAL(10,2) NOT NULL",
-        "type":             "ENUM('payment','topup','refund')",
-        "transaction_date": "DATETIME DEFAULT CURRENT_TIMESTAMP",
-        "payment_status":   "ENUM('successful','failed','declined')",
-        "description":      "VARCHAR(255)"
-      },
-      "qr_codes": {
-        "qr_id":          "INT PRIMARY KEY AUTO_INCREMENT",
-        "student_id":     "INT FK→students.student_id",
-        "qr_data":        "TEXT NOT NULL",
-        "is_active":      "BOOLEAN DEFAULT TRUE",
-        "generated_date": "DATETIME DEFAULT CURRENT_TIMESTAMP"
-      },
-      "admin": {
-        "admin_id":      "INT PRIMARY KEY AUTO_INCREMENT",
-        "name":          "VARCHAR(100) NOT NULL",
-        "email":         "VARCHAR(100) UNIQUE NOT NULL",
-        "password_hash": "VARCHAR(255) NOT NULL",
-        "role":          "VARCHAR(50) DEFAULT 'admin'"
-      }
-    }
-  },
+Layer	Platform	Details
+Frontend	Vercel	Vite/React static site. Auto-deploys from frontend/ on git push. VITE_API_URL env var points to backend URL.
+Backend	Railway or Render	Plain Django deployment — just push code, platform handles Python runtime. No Dockerfile needed.
+Database	Supabase Postgres	Free tier available. Django connects via DATABASE_URL connection string. Used for both local dev and production.
+Redis	Upstash	Serverless Redis. Free tier: 10k commands/day (plenty for rate limiting + Celery). Connected via REDIS_URL.
+Task Queue	Celery on Railway	Runs as a separate worker process on the same Railway project.
+Local dev workflow:
 
-  "business_rules": [
-    { "id": "BR-01", "rule": "Wallet balance cannot go below zero", "enforcement": "Balance check before every debit; DECIMAL(10,2) unsigned" },
-    { "id": "BR-02", "rule": "One active QR code per student", "enforcement": "Regeneration sets prior QR is_active=FALSE; new code is_active=TRUE" },
-    { "id": "BR-03", "rule": "Payments only processed for wallet status='active'", "enforcement": "API returns 403 if wallet is suspended or closed" },
-    { "id": "BR-04", "rule": "Daily spending limit enforced when parental monitoring is ON", "enforcement": "Sum today's transactions on each payment; reject if over limit" },
-    { "id": "BR-05", "rule": "Payment deducted atomically — no partial writes", "enforcement": "Django transaction.atomic() on every payment; rollback on failure" },
-    { "id": "BR-06", "rule": "Same wallet cannot be debited twice within 2 seconds", "enforcement": "Redis key wallet:{wallet_id}:lock with 2s TTL; 429 if lock active" },
-    { "id": "BR-07", "rule": "PIN required for all payment transactions", "enforcement": "Payment process endpoint validates PIN hash before executing debit" },
-    { "id": "BR-08", "rule": "Account locked after 3 consecutive failed attempts", "enforcement": "Redis lockout counter; 15-minute progressive lockout" },
-    { "id": "BR-09", "rule": "Offline mode is NOT supported", "enforcement": "Network check on app load; payment endpoints reject requests without active connection" },
-    { "id": "BR-10", "rule": "Student registration is admin-only", "enforcement": "POST /api/v1/students/ requires Admin JWT; no public registration route" }
-  ],
+bash
+# Backend (venv + pip — no Docker)
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # Add Supabase + Upstash URLs
+python manage.py runserver    # Django dev server on :8000
+# Frontend (Vite)
+cd frontend
+npm install && npm run dev    # Vite dev server on :5173
+Production deploy:
 
-  "security_controls": {
-    "authentication": {
-      "method": "JWT RS256",
-      "access_token_ttl": "60 minutes",
-      "refresh_token_ttl": "7 days",
-      "password_hashing": "bcrypt work factor 12",
-      "session_timeout": "10 minutes inactivity auto-logout",
-      "account_lockout": "3 failed attempts → 15 min lockout",
-      "pin_lockout": "3 failed attempts → admin/parent reset required"
-    },
-    "transport": {
-      "protocol": "HTTPS TLS 1.2+",
-      "hsts": "max-age=31536000; includeSubDomains",
-      "certificate": "Let's Encrypt auto-renew"
-    },
-    "data_protection": {
-      "at_rest": "AES-256 cloud-managed keys",
-      "qr_signing": "HMAC-SHA256 server secret",
-      "sensitive_fields_never_exposed": ["pin_hash", "password_hash"]
-    },
-    "api_security": {
-      "rate_limiting": "100 req/min per IP; payment endpoints 10 req/min",
-      "cors": "Whitelist approved frontend origins only",
-      "csrf": "Enabled for cookie-based operations",
-      "input_validation": "DRF serializers + custom validators",
-      "sql_injection_prevention": "Django ORM parameterised queries only"
-    },
-    "rbac_enforcement": "Server-side on every endpoint via DRF permission classes — client-side hiding is supplementary only"
-  },
+bash
+# Frontend → git push → Vercel auto-deploys
+# Backend  → git push → Railway/Render auto-deploys
+# Database → Supabase dashboard (always on)
+# Redis    → Upstash dashboard (always on)
+TIP
 
-  "notifications": {
-    "events": [
-      { "event": "wallet_funded",        "recipients": ["parent","student"], "channels": ["in_app","email"] },
-      { "event": "payment_success",      "recipients": ["parent"],           "channels": ["in_app","sms"]   },
-      { "event": "payment_declined",     "recipients": ["parent"],           "channels": ["in_app"]          },
-      { "event": "low_balance",          "recipients": ["parent"],           "channels": ["in_app","sms"]   },
-      { "event": "daily_limit_exceeded", "recipients": ["parent"],           "channels": ["in_app","sms"]   },
-      { "event": "qr_regenerated",       "recipients": ["parent"],           "channels": ["in_app","email"] },
-      { "event": "account_suspended",    "recipients": ["parent"],           "channels": ["email"]           },
-      { "event": "pin_lockout",          "recipients": ["parent","admin"],   "channels": ["in_app","email"] }
-    ],
-    "delivery": {
-      "in_app": "Firebase Cloud Messaging (FCM)",
-      "email": "SendGrid SMTP",
-      "sms": "Africa's Talking SMS Gateway (Nigeria)"
-    }
-  },
+The existing docker-compose.yml and Dockerfile files will be kept in the repo as optional — useful if someone wants to run everything locally in containers. But they are not required for development or production.
 
-  "excluded_features": [
-    {
-      "name": "Offline QR Code Payment",
-      "reason": "Removed from SmartSchool Wallet. Adds complexity and security risk. Campus WiFi is assumed available.",
-      "replacement": "Clear 'No Connection' error screen with retry prompt"
-    },
-    {
-      "name": "Offline Transaction Sync",
-      "reason": "Redundant without offline caching. Endpoint /api/v1/payments/offline/sync/ not implemented.",
-      "replacement": "N/A"
-    }
-  ],
+4. User Model Redesign
+The current User model mixes parent/seller/admin fields into one table. The fix:
 
-  "mockup_screen_map": {
-    "base_path": "/home/zeus/Templates/new/tboss-project-21/mockups/",
-    "files": {
-      "auth/login.png":                   "screen_login",
-      "auth/forgot_password.png":         "screen_forgot_password",
-      "student/dashboard.png":            "screen_student_dashboard",
-      "student/transaction_history.png":  "screen_student_transactions",
-      "student/profile.png":              "screen_student_profile",
-      "parent/dashboard.png":             "screen_parent_dashboard",
-      "parent/fund_wallet_modal.png":     "modal_fund_wallet",
-      "parent/transaction_history.png":   "screen_parent_transactions",
-      "parent/monitoring_settings.png":   "screen_parent_monitoring",
-      "parent/profile.png":               "screen_parent_profile",
-      "seller/scanner.png":               "screen_seller_dashboard",
-      "seller/manual_entry.png":          "screen_seller_manual_entry",
-      "seller/receipt.png":               "screen_receipt",
-      "seller/history.png":               "screen_seller_history",
-      "admin/dashboard.png":              "screen_admin_dashboard",
-      "admin/students.png":               "screen_admin_students",
-      "admin/register_student_modal.png": "modal_register_student",
-      "admin/student_detail.png":         "screen_admin_student_detail",
-      "admin/sellers.png":                "screen_admin_sellers",
-      "admin/transactions.png":           "screen_admin_transactions",
-      "admin/reports.png":                "screen_admin_reports",
-      "admin/settings.png":               "screen_admin_settings"
-    }
-  },
+User (auth)          → email, password, role, is_active
+  └── Student        → full_name, matric_no, department, level, pin_hash (linked via FK to User)
+  └── ParentProfile  → phone, monitoring_enabled, daily_limit
+  └── SellerProfile  → location, service_type, store_status
+  └── AdminProfile   → (minimal — just the User record)
+  └── ParentStudent  → parent(FK→User), student(FK→Student)  # M2M linking table
+WARNING
 
-  "build_order": [
-    "1. Django project setup + app creation",
-    "2. Database models + migrations + indexes",
-    "3. Authentication API (login, logout, JWT, password reset)",
-    "4. Student CRUD + QR generation endpoints",
-    "5. Wallet endpoints (detail, topup, transactions, limit, status)",
-    "6. Payment endpoints (scan, process, receipt)",
-    "7. Admin endpoints (dashboard, reports, user management)",
-    "8. RBAC permission classes on all endpoints",
-    "9. Rate limiting + Redis deduplication lock",
-    "10. React project setup + Tailwind + routing",
-    "11. Shared component library",
-    "12. Auth screens (Login, Forgot Password)",
-    "13. Student screens (Dashboard, Transactions, Profile)",
-    "14. Seller screens (QR Scanner, Manual Entry, Receipt, History)",
-    "15. Parent screens (Dashboard, Fund Wallet, Transactions, Monitoring, Profile)",
-    "16. Admin screens (Dashboard, Students, Sellers, Transactions, Reports, Settings)",
-    "17. Celery + notifications (FCM, email, SMS)",
-    "18. Unit tests + integration tests + load tests + security scan",
-    "19. Docker containerisation + Cloud Run deployment",
-    "20. CI/CD pipeline + domain + SSL"
-  ],
+This is a breaking migration. The existing db.sqlite3 dev database will be wiped and re-migrated. No production data exists yet so this is safe.
 
-  "prompt_instructions": {
-    "app_name": "SmartSchool Wallet — use this name everywhere: titles, headers, email templates, page titles, app manifest, loading screens",
-    "currency": "Nigerian Naira (NGN) — format all amounts as ₦1,234.50",
-    "offline_mode": "REMOVED — do not implement any offline payment caching, service workers for payments, or sync endpoints",
-    "student_device": "Students do NOT have a mobile app — they use a physical QR card only. Student web portal is optional (balance check only)",
-    "parental_monitoring": "OPT-IN — monitoring is OFF by default; parent explicitly enables it",
-    "pin_vs_password": "PIN (4–6 digits) is for transaction authorization only. Password is for app login. They are separate credentials.",
-    "mockup_usage": "For each screen in 'screens', reference the corresponding file in 'mockup_screen_map.files' at the base_path for visual design guidance",
-    "rbac_critical": "NEVER rely on client-side role checks for security. All access control is server-side via DRF permission classes",
-    "how_to_use_this_file": "Feed this JSON as system context to an AI coding assistant. Pair each screen's 'components' array with its 'mockup_file' to generate accurate UI code. Use 'api_reference' for all HTTP calls. Use 'business_rules' to drive validation logic. Follow 'build_order' for implementation sequence."
-  }
-}
+5. Web vs Mobile Scope
+Feature	Web App	Mobile App (Phase 2)
+Admin Dashboard	✅ Full	❌ Not needed
+Admin Student/Seller/Txn Management	✅ Full	❌ Not needed
+Seller QR Scanner	✅ Basic (webcam)	✅ Primary (camera)
+Seller Transaction History	✅ Full	✅ Compact
+Parent Dashboard	✅ Full	✅ Primary
+Parent Fund Wallet	✅ Full	✅ Primary
+Parent Monitoring	✅ Full	✅ Primary
+Student Balance + QR View	✅ Portal	✅
+Student Self Top-up	✅ (Paystack)	✅ (Paystack)
+Student Transaction History	✅	✅
+Decisions (Confirmed)
+Decision	Choice	Notes
+Mobile apps	Web first, mobile deferred to Phase 2	Share API client + design system later
+Payment gateway	Mock topup for MVP → Paystack integration next	POST /wallets/{id}/topup/ starts as direct credit; Paystack webhook wired in later
+Student login	Option B — matric_no + PIN (4-6 digit)	Separate auth endpoint, limited-scope JWT, keeps student auth simple
+Student self top-up	✅ Yes — students can fund their own wallets	Same Paystack flow as parents. Topup endpoint accepts student JWT too
+Deployment	Vercel (frontend) + Railway/Render (backend) + Supabase (DB) + Upstash (Redis)	No Docker required. Fully managed, free-tier friendly
+Proposed Changes — By Phase
+Phase 1: Backend Foundation Reset
+Fix the critical model and auth issues before any frontend work.
+
+[MODIFY] 
+models.py
+Remove raw bcrypt usage — use Django's built-in AbstractBaseUser.set_password() and check_password()
+Remove inline parent/seller fields (phone, monitoring_enabled, daily_limit, location, service_type, status)
+Keep: user_id, name, email, role, is_active, is_staff, created_at, updated_at
+[NEW] 
+profiles.py
+ParentProfile model: user(1:1→User), phone, monitoring_enabled, daily_limit
+SellerProfile model: user(1:1→User), location, service_type, store_status
+[NEW] 
+parent_student.py
+ParentStudent linking model: parent(FK→User), student(FK→Student) with unique_together constraint
+This supports multiple children per parent and (optionally) multiple parents per student
+[MODIFY] 
+models.py
+Add user = models.OneToOneField(User, ..., null=True, blank=True) — optional link for web portal login
+Fix hmac.new → hmac.new (verify correct usage)
+[MODIFY] 
+models.py
+Add select_for_update() usage in debit() and credit() methods
+Add created_at field
+[MODIFY] 
+views.py
+Rewrite login_view to generate JWT tokens directly via RefreshToken.for_user() instead of the broken CustomTokenObtainPairView workaround
+Add login attempt tracking + lockout (Redis counter, 3 attempts → 15 min lock)
+[MODIFY] 
+settings.py
+Add REDIS_PASSWORD setting
+Fix notification-related settings (FIREBASE_SERVER_KEY, AFRICASTALKING_USERNAME, AFRICASTALKING_API_KEY, AFRICASTALKING_SENDER_ID)
+Remove mysqlclient from requirements, keep psycopg2-binary
+Set DB_ENGINE default to django.db.backends.postgresql
+[MODIFY] 
+requirements.txt
+Remove mysqlclient
+Add Pillow (for QR code image generation)
+Phase 2: Complete Backend API
+Fill in all the TODO items and missing endpoints.
+
+[MODIFY] 
+views.py
+Add student_detail endpoint — returns student profile + wallet + recent transactions + linked parents
+Add student_qr_regenerate endpoint
+Add bulk CSV import endpoint
+[MODIFY] 
+views.py
+Implement daily spending limit check in context of parental monitoring
+Properly link wallet limit settings to ParentProfile.monitoring_enabled and ParentProfile.daily_limit
+[MODIFY] 
+views.py
+Add PIN lockout tracking (3 failed attempts → lock, require parent/admin reset)
+Implement daily spending limit enforcement (BR-04)
+Add declined transaction recording
+Wire up notification triggers via Celery tasks
+[MODIFY] 
+views.py
+Enhance dashboard stats: transaction volume chart data, top vendors, recent activity feed
+Improve reports endpoint with proper CSV/PDF export support
+Add system settings CRUD
+[NEW] 
+student_auth.py
+Separate student login endpoint: POST /api/v1/auth/student/login/ accepting matric_no + pin
+Returns limited-scope JWT for student web portal
+JWT payload includes role: 'student', student_id, wallet_id
+[MODIFY] 
+views.py
+Update wallet_topup permission: allow student role (self-topup) in addition to parent and admin
+Student can only top up their own wallet (object-level permission check)
+[MODIFY] 
+urls.py
+Add student auth route
+Phase 3: Web Frontend — Design System & Core
+Rebuild the frontend with proper architecture and premium aesthetics matching mockups.
+
+[MODIFY] 
+tailwind.config.js
+Replace generic blue palette with exact branding colors from spec:
+Primary: #1F4E79, Primary Light: #2E75B6, Accent: #00B4D8
+Success: #27AE60, Warning: #F39C12, Danger: #E74C3C
+Background: #F4F8FC, Surface: #FFFFFF
+Text: #1A1A2E / #6B7280, Border: #E5E7EB
+Add custom fontFamily: { sans: ['Inter', ...] }
+[MODIFY] 
+index.css
+Import Inter font from Google Fonts
+Define CSS custom properties for the design tokens
+Add base styles, scrollbar styling, transitions, animations
+[MODIFY] 
+package.json
+Add missing dependencies: recharts, react-hot-toast, qrcode.react, react-qr-reader, @tanstack/react-query (for data fetching + caching)
+Rebuild shared component library:
+[MODIFY] All files in frontend/src/components/
+Rebuild: Button, Card, Input, Select, Table, Modal, Badge, Loading
+[NEW] Sidebar.jsx — collapsible admin sidebar with nav items + icons
+[NEW] TopBar.jsx — header with user info, notifications bell, logout
+[NEW] ProtectedRoute.jsx — role-based route guard
+[NEW] StatsCard.jsx — KPI card with icon, value, trend
+[NEW] EmptyState.jsx — illustrated empty state
+[NEW] StatusBadge.jsx — colored status indicator
+[NEW] DateRangePicker.jsx
+[NEW] SearchBar.jsx
+[NEW] Pagination.jsx
+[NEW] Toast.jsx — notification wrapper
+[NEW] frontend/src/hooks/
+useApi.js — generic data-fetching hook wrapping react-query
+useDebounce.js — search input debounce
+useInactivityTimeout.js — 10-min auto-logout
+[MODIFY] 
+AuthContext.jsx
+Add inactivity timer (10 min → auto-logout)
+Add role-based redirect on login
+[MODIFY] 
+App.jsx
+Wrap routes in ProtectedRoute with role checks
+Add react-query provider
+Add Toaster provider
+Add 404 catch-all route
+Phase 4: Web Frontend — Admin Screens
+Full-featured admin dashboard matching the mockup style (sidebar + content layout).
+
+[MODIFY] 
+Dashboard.jsx
+KPI cards: Total Students, Active Vendors, Today's Volume (₦), Suspended Accounts
+Transaction volume line chart (Recharts)
+Top vendors table (top 5 by volume)
+Recent activity feed (last 10 events)
+Quick actions panel
+[MODIFY] 
+Students.jsx
+Search + filter (department, level, status)
+Student table with pagination
+Register Student modal (form + auto QR generation)
+Bulk CSV import button
+Row actions: view detail, suspend, regenerate QR
+[NEW] 
+StudentDetail.jsx
+Student profile card + QR code display
+Wallet card (balance, status, actions)
+Linked parent card
+Transaction history table
+Action buttons: suspend wallet, regenerate QR, reset PIN
+[MODIFY] 
+Sellers.jsx
+Seller table with status filter
+Register Seller modal
+Actions: suspend, activate
+[MODIFY] 
+Transactions.jsx
+Live feed (polling every 10s)
+Filters: date range, status, vendor
+Export button (CSV download)
+Full table with pagination
+[MODIFY] 
+Reports.jsx
+Report type selector (transactions, wallets, students, sellers)
+Date range picker
+Generate + preview
+Download PDF / Export CSV
+[MODIFY] 
+Settings.jsx
+Low balance alert threshold
+Default transaction limit
+Notification preferences
+System maintenance mode toggle
+Phase 5: Web Frontend — Seller (Store) Screens
+The seller/store web interface for desktop POS use (webcam QR scanning).
+
+[MODIFY] 
+QRScanner.jsx
+Webcam-based QR scanner viewfinder
+Scan result card: student name + balance
+Amount input + process payment button
+Payment status overlay (success/declined animation)
+[MODIFY] 
+ManualEntry.jsx
+Matric number input + lookup
+Student preview card
+Amount input + process button
+[MODIFY] 
+Receipt.jsx
+Status icon (checkmark/X)
+Transaction details: amount, student, txn ID, timestamp, remaining balance
+Print/done button
+[MODIFY] 
+History.jsx
+Day total summary card
+Transaction list with date filter
+Earnings breakdown
+Phase 6: Web Frontend — Student & Parent Screens
+Student Screens (web portal — read-only emphasis):
+[MODIFY] 
+Dashboard.jsx
+QR code display (large, centered)
+Balance card
+Fund Wallet button → opens topup modal (same Paystack flow as parent)
+Recent transactions (last 5)
+Low balance alert
+[NEW] 
+FundWallet.jsx
+Amount input with quick chips (₦500, ₦1,000, ₦2,000, ₦5,000)
+Current balance display
+Mock payment confirmation (Paystack integration later)
+Success/error state
+[MODIFY] 
+Transactions.jsx
+Full transaction history with date/status filters
+Pagination
+[MODIFY] 
+Profile.jsx
+Display-only fields (name, matric, department, level)
+Change PIN button
+Parent Screens (web):
+[MODIFY] 
+Dashboard.jsx
+Child selector dropdown (if multiple children)
+Wallet summary card (balance + child name)
+Fund wallet button → modal
+Spending chart (weekly)
+Monitoring toggle card
+Recent transactions mini list
+[MODIFY] 
+FundWallet.jsx
+Amount input with quick chips (₦500, ₦1000, ₦2000, ₦5000)
+Current balance display
+Confirmation step
+Success/error state
+[MODIFY] 
+Transactions.jsx
+Full transaction history
+Search, date filter, status filter
+Export button
+[MODIFY] 
+Monitoring.jsx
+Monitoring on/off toggle
+Daily spending limit input
+Alert preferences
+Notification channels (in-app, email, SMS toggles)
+[MODIFY] 
+Profile.jsx
+Editable fields (name, phone, email)
+Change password section
+Linked children list
+Phase 7: Mobile App (React Native + Expo) — DEFERRED
+NOTE
+
+Deferred to Phase 2 sprint. The web app covers all functional requirements. Mobile adds convenience for parents (funding on the go), sellers (native camera QR scanning), and students (QR code display on phone). Will share API client, auth logic, and design tokens from the web app.
+
+Planned scope (for future sprint):
+Seller Mobile App:
+
+Login → QR Scanner (native camera) → Amount → Process → Receipt
+Transaction history (today's sales)
+Parent Mobile App:
+
+Dashboard (child balance, spending chart) → Fund wallet → Monitoring
+Push notification handling (FCM)
+Student Mobile App:
+
+Login (matric + PIN) → QR code display (full screen) → Balance → Self top-up → History
+Verification Plan
+Automated Tests
+bash
+# Backend
+cd backend
+python manage.py test authentication students wallets payments admin_panel
+# Specific scenarios to test:
+# - Login → JWT issuance → protected endpoint access
+# - Payment flow: scan → verify → process → receipt
+# - Balance cannot go negative (BR-01)
+# - Duplicate payment rejection within 2s (BR-06)
+# - Daily limit enforcement (BR-04)
+# - PIN lockout after 3 failures (BR-08)
+# - RBAC: seller cannot access admin endpoints, etc.
+Frontend Verification
+bash
+# Build check
+cd frontend
+npm run build   # Must compile without errors
+# Dev server
+npm run dev     # Manual testing all routes
+Browser Testing
+Navigate all admin screens with admin JWT
+Attempt unauthorized access with wrong role → verify redirect
+Test QR scanner with webcam
+Test responsive layout (admin = desktop, student/parent = mobile-first)
+Manual Verification
+Walk through complete payment flow: admin registers student → parent funds wallet → seller scans QR → payment processed → parent sees notification
+Verify all ₦ currency formatting
+Verify inactivity timeout (10 min)
