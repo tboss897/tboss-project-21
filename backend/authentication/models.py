@@ -58,3 +58,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     def __str__(self):
         return f"{self.email} ({self.role})"
+
+
+# Import profile models so Django's migration system discovers them
+from .profiles import ParentProfile, SellerProfile  # noqa: E402, F401
+
