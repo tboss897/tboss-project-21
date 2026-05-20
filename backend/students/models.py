@@ -28,7 +28,10 @@ class Student(models.Model):
     
     def check_pin(self, pin):
         import bcrypt
-        return bcrypt.checkpw(pin.encode('utf-8'), self.pin_hash.encode('utf-8'))
+        try:
+            return bcrypt.checkpw(pin.encode('utf-8'), self.pin_hash.encode('utf-8'))
+        except Exception:
+            return False
     
     def __str__(self):
         return f"{self.full_name} ({self.matric_no})"
