@@ -14,14 +14,38 @@ from authentication.permissions import IsAdmin, IsAdminOrParent, IsAdminOrParent
 @permission_classes([IsAdminOrParentOrStudent])
 def wallet_detail(request, wallet_id):
     wallet = get_object_or_404(Wallet, wallet_id=wallet_id)
+    
+    if request.user.role == 'student':
+        if wallet.student.student_id != request.user.student.student_id:
+            return Response(
+                {'error': 'You do not have permission to view this wallet.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    elif request.user.role == 'parent':
+        from students.models import ParentStudent
+        if not ParentStudent.objects.filter(parent=request.user, student=wallet.student).exists():
+            return Response(
+                {'error': 'You do not have permission to view this wallet.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
     serializer = WalletSerializer(wallet)
     return Response(serializer.data)
 
 
 @api_view(['POST'])
-@permission_classes([IsAdminOrParent])
+@permission_classes([IsAdminOrParentOrStudent])
 def wallet_topup(request, wallet_id):
     wallet = get_object_or_404(Wallet, wallet_id=wallet_id)
+    
+    # If student, verify they are topping up their own wallet
+    if request.user.role == 'student':
+        if wallet.student.student_id != request.user.student.student_id:
+            return Response(
+                {'error': 'You can only top up your own wallet.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
     serializer = WalletTopupSerializer(data=request.data)
     
     if serializer.is_valid():
@@ -53,6 +77,21 @@ def wallet_topup(request, wallet_id):
 @permission_classes([IsAdminOrParentOrStudent])
 def wallet_transactions(request, wallet_id):
     wallet = get_object_or_404(Wallet, wallet_id=wallet_id)
+    
+    if request.user.role == 'student':
+        if wallet.student.student_id != request.user.student.student_id:
+            return Response(
+                {'error': 'You do not have permission to view these transactions.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    elif request.user.role == 'parent':
+        from students.models import ParentStudent
+        if not ParentStudent.objects.filter(parent=request.user, student=wallet.student).exists():
+            return Response(
+                {'error': 'You do not have permission to view these transactions.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
     transactions = wallet.transactions.all()
     
     # Apply filters
