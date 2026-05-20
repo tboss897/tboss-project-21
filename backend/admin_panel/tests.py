@@ -2,8 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework import status
-from .models import ParentStudentLink
-from students.models import Student
+from students.models import Student, ParentStudent
 
 User = get_user_model()
 
@@ -16,27 +15,21 @@ class ParentStudentLinkModelTest(TestCase):
             name='Test Parent',
             role='parent'
         )
-        self.student_user = User.objects.create_user(
-            email='student@example.com',
-            password='testpass123',
-            name='Test Student',
-            role='student'
-        )
         self.student = Student.objects.create(
-            user=self.student_user,
             matric_no='MAT12345',
+            full_name='Test Student',
+            email='student@example.com',
             department='Computer Science',
             level='100'
         )
 
     def test_create_parent_student_link(self):
-        link = ParentStudentLink.objects.create(
+        link = ParentStudent.objects.create(
             parent=self.parent,
             student=self.student
         )
         self.assertEqual(link.parent, self.parent)
         self.assertEqual(link.student, self.student)
-        self.assertTrue(link.is_active)
 
 
 class AdminAPITest(APITestCase):
@@ -53,15 +46,10 @@ class AdminAPITest(APITestCase):
             name='Test Parent',
             role='parent'
         )
-        self.student_user = User.objects.create_user(
-            email='student@example.com',
-            password='testpass123',
-            name='Test Student',
-            role='student'
-        )
         self.student = Student.objects.create(
-            user=self.student_user,
             matric_no='MAT12345',
+            full_name='Test Student',
+            email='student@example.com',
             department='Computer Science',
             level='100'
         )
