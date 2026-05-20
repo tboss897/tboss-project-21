@@ -14,10 +14,17 @@ class DashboardStatsSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
         fields = ['user_id', 'name', 'email', 'role', 'status', 'is_active', 'created_at']
         read_only_fields = ['user_id', 'created_at']
+        
+    def get_status(self, obj):
+        if obj.role == 'seller' and hasattr(obj, 'seller_profile'):
+            return obj.seller_profile.store_status
+        return 'active' if obj.is_active else 'suspended'
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
