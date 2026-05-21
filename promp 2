@@ -1,0 +1,281 @@
+{
+  "task": "Deploy SmartSchool Wallet to production",
+  "ai_behavior": {
+    "style": "Execute one step at a time. Show the exact file content or terminal command for each step. Do not move to the next step until I confirm the current one is done. If a step requires me to do something manually in a browser (e.g. create a Supabase project), tell me exactly what to click and what value to copy, then wait.",
+    "output_format": "For file changes show the full file content. For terminal commands show the exact command to run in the terminal. Never summarize — always show the real content."
+  },
+
+  "project": {
+    "name": "SmartSchool Wallet",
+    "repo": "https://github.com/tboss897/tboss-project-21",
+    "backend_root": "backend/",
+    "frontend_root": "frontend/",
+    "backend_framework": "Django REST Framework",
+    "frontend_framework": "Vite + React"
+  },
+
+  "services": {
+    "database": "Supabase (PostgreSQL)",
+    "redis": "Upstash",
+    "backend_host": "Railway",
+    "frontend_host": "Vercel"
+  },
+
+  "phases": [
+
+    {
+      "id": 1,
+      "name": "Supabase — create the database",
+      "steps": [
+        {
+          "id": "1.1",
+          "type": "manual",
+          "instruction": "Open https://supabase.com and sign in. Click 'New project'. Set name to smartschool-wallet. Choose region EU West (closest to Nigeria). Set a strong database password and save it somewhere safe. Wait for the project to finish provisioning (takes ~1 min)."
+        },
+        {
+          "id": "1.2",
+          "type": "manual",
+          "instruction": "In the Supabase dashboard go to Settings → Database → Connection string → select URI tab. Copy the full connection string. It looks like: postgresql://postgres:[YOUR-PASSWORD]@db.[REF].supabase.co:5432/postgres. Save this — it becomes DATABASE_URL."
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "name": "Upstash — create the Redis instance",
+      "steps": [
+        {
+          "id": "2.1",
+          "type": "manual",
+          "instruction": "Open https://upstash.com and sign in. Click 'Create database'. Name it smartschool-redis. Type: Redis. Region: EU-West-1. Enable TLS. Click Create. Wait for provisioning."
+        },
+        {
+          "id": "2.2",
+          "type": "manual",
+          "instruction": "In the Upstash dashboard open the database. Go to the Connect tab. Copy the Redis URL — it looks like: rediss://default:[PASSWORD]@[HOST].upstash.io:6379. The password is the string between 'default:' and the '@'. Save both REDIS_URL and REDIS_PASSWORD."
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "name": "Backend — create deployment config files",
+      "note": "All files created inside the backend/ directory of the repo.",
+      "steps": [
+        {
+          "id": "3.1",
+          "type": "create_file",
+          "path": "backend/Procfile",
+          "content": "web: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120\nworker: celery -A config worker --loglevel=info --concurrency=2"
+        },
+        {
+          "id": "3.2",
+          "type": "create_file",
+          "path": "backend/runtime.txt",
+          "content": "python-3.12.0"
+        },
+        {
+          "id": "3.3",
+          "type": "edit_file",
+          "path": "backend/requirements.txt",
+          "instruction": "Add these lines to requirements.txt if they are not already present. Also remove mysqlclient if it exists.",
+          "lines_to_add": [
+            "gunicorn==21.2.0",
+            "whitenoise==6.6.0",
+            "dj-database-url==2.1.0",
+            "Pillow==10.3.0"
+          ],
+          "lines_to_remove": [
+            "mysqlclient"
+          ]
+        },
+        {
+          "id": "3.4",
+          "type": "edit_file",
+          "path": "backend/config/settings.py",
+          "instruction": "Add the following block at the top of settings.py after the existing imports. These settings override hardcoded values and make the app work on Railway with Supabase and Upstash.",
+          "block_to_add": "import os\nimport dj_database_url\n\nSECRET_KEY = os.environ.get('SECRET_KEY', SECRET_KEY)\nDEBUG = os.environ.get('DEBUG', 'False') == 'True'\n\nALLOWED_HOSTS = [\n    'localhost',\n    '127.0.0.1',\n    os.environ.get('BACKEND_HOST', ''),\n]\n\n# Database — reads from DATABASE_URL env var\nDATABASES = {\n    'default': dj_database_url.config(\n        default=os.environ.get('DATABASE_URL'),\n        conn_max_age=600,\n        ssl_require=True,\n    )\n}\n\n# Redis\nREDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')\nREDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')\nCELERY_BROKER_URL = REDIS_URL\nCELERY_RESULT_BACKEND = REDIS_URL\n\n# Static files\nSTATIC_ROOT = BASE_DIR / 'staticfiles'\nSTATIC_URL = '/static/'\nSTORAGES = {\n    'staticfiles': {\n        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'\n    }\n}\n\n# CORS\nCORS_ALLOWED_ORIGINS = [\n    'http://localhost:5173',\n    os.environ.get('FRONTEND_URL', ''),\n]\n\n# Notifications\nFIREBASE_SERVER_KEY = os.environ.get('FIREBASE_SERVER_KEY', '')\nAFRICASTALKING_USERNAME = os.environ.get('AFRICASTALKING_USERNAME', '')\nAFRICASTALKING_API_KEY = os.environ.get('AFRICASTALKING_API_KEY', '')\nAFRICASTALKING_SENDER_ID = os.environ.get('AFRICASTALKING_SENDER_ID', '')"
+        },
+        {
+          "id": "3.5",
+          "type": "edit_file",
+          "path": "backend/config/settings.py",
+          "instruction": "Find the MIDDLEWARE list. Insert 'whitenoise.middleware.WhiteNoiseMiddleware' as the second item, right after 'django.middleware.security.SecurityMiddleware'."
+        },
+        {
+          "id": "3.6",
+          "type": "create_file",
+          "path": "backend/.env.example",
+          "content": "SECRET_KEY=replace-with-50-char-random-string\nDEBUG=False\nDATABASE_URL=postgresql://postgres:[pw]@db.[ref].supabase.co:5432/postgres\nREDIS_URL=rediss://default:[pw]@[host].upstash.io:6379\nREDIS_PASSWORD=\nBACKEND_HOST=your-app.railway.app\nFRONTEND_URL=https://your-app.vercel.app\nFIREBASE_SERVER_KEY=\nAFRICASTALKING_USERNAME=\nAFRICASTALKING_API_KEY=\nAFRICASTALKING_SENDER_ID="
+        },
+        {
+          "id": "3.7",
+          "type": "edit_file",
+          "path": "backend/.gitignore",
+          "instruction": "Confirm these lines exist in .gitignore. Add any that are missing.",
+          "lines_to_confirm": [
+            ".env",
+            "*.sqlite3",
+            "staticfiles/",
+            "__pycache__/",
+            "venv/"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "name": "Frontend — create deployment config file",
+      "steps": [
+        {
+          "id": "4.1",
+          "type": "create_file",
+          "path": "frontend/vercel.json",
+          "content": "{\n  \"rewrites\": [\n    { \"source\": \"/(.*)\", \"destination\": \"/index.html\" }\n  ]\n}"
+        },
+        {
+          "id": "4.2",
+          "type": "edit_file",
+          "path": "frontend/src/api/axios.js",
+          "instruction": "Find wherever the Axios instance is created (could be api.js, http.js, or similar). Update baseURL to read from the Vite env var with a localhost fallback.",
+          "pattern_to_replace": "baseURL: '...'",
+          "replace_with": "baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "name": "Commit and push all changes",
+      "steps": [
+        {
+          "id": "5.1",
+          "type": "terminal",
+          "commands": [
+            "git add backend/Procfile backend/runtime.txt backend/requirements.txt backend/config/settings.py backend/.env.example backend/.gitignore",
+            "git add frontend/vercel.json frontend/src/api/",
+            "git commit -m \"chore: add production deployment config\"",
+            "git push origin main"
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "name": "Railway — deploy the Django backend",
+      "steps": [
+        {
+          "id": "6.1",
+          "type": "manual",
+          "instruction": "Open https://railway.app. Sign in. Click 'New Project' → 'Deploy from GitHub repo' → select tboss897/tboss-project-21."
+        },
+        {
+          "id": "6.2",
+          "type": "manual",
+          "instruction": "In the Railway service Settings tab: set Root Directory to 'backend'. Railway will detect the Procfile automatically. If it doesn't, set Start Command to: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
+        },
+        {
+          "id": "6.3",
+          "type": "manual",
+          "instruction": "Go to the Variables tab. Add every key from backend/.env.example with real values. For SECRET_KEY generate a random 50-character string. Set DEBUG=False. Paste your DATABASE_URL from Supabase and REDIS_URL from Upstash. Leave FRONTEND_URL blank for now — you will fill it after Vercel."
+        },
+        {
+          "id": "6.4",
+          "type": "manual",
+          "instruction": "Go to Settings → Deploy → Pre-deploy command. Set it to: python manage.py migrate --noinput && python manage.py collectstatic --noinput. This runs automatically before every deploy so migrations always stay in sync."
+        },
+        {
+          "id": "6.5",
+          "type": "manual",
+          "instruction": "Go to Settings → Networking → Generate Domain. Copy the generated URL (e.g. smartschool-xyz.railway.app). You need this for Vercel in the next phase. Also paste this value into the BACKEND_HOST variable in Railway and redeploy."
+        },
+        {
+          "id": "6.6",
+          "type": "manual",
+          "instruction": "Add a second service in the same Railway project for the Celery worker. Click 'New Service' → same GitHub repo. Root Directory: backend. Start Command: celery -A config worker --loglevel=info --concurrency=2. Copy all the same Variables from the web service. Do NOT generate a public domain for this service."
+        },
+        {
+          "id": "6.7",
+          "type": "manual",
+          "instruction": "Once the web service is deployed and green, open the Railway shell for the web service. Run: python manage.py createsuperuser. Set the admin email and password. This is your initial admin account."
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "name": "Vercel — deploy the React frontend",
+      "steps": [
+        {
+          "id": "7.1",
+          "type": "manual",
+          "instruction": "Open https://vercel.com. Sign in. Click 'Add New Project' → 'Import Git Repository' → select tboss897/tboss-project-21."
+        },
+        {
+          "id": "7.2",
+          "type": "manual",
+          "instruction": "In the project configuration screen set: Root Directory = frontend. Framework Preset = Vite. Build Command = npm run build. Output Directory = dist. Install Command = npm install. Do not change anything else."
+        },
+        {
+          "id": "7.3",
+          "type": "manual",
+          "instruction": "Before clicking Deploy scroll down to Environment Variables. Add one variable: Name = VITE_API_URL, Value = https://[your-railway-domain].railway.app/api/v1. Replace with your actual Railway URL from step 6.5. Apply to all environments (Production, Preview, Development)."
+        },
+        {
+          "id": "7.4",
+          "type": "manual",
+          "instruction": "Click Deploy. Wait for the build to complete. Copy the production URL Vercel gives you (e.g. smartschool-wallet.vercel.app)."
+        },
+        {
+          "id": "7.5",
+          "type": "manual",
+          "instruction": "Go back to Railway. In the web service Variables tab update FRONTEND_URL to your Vercel production URL (e.g. https://smartschool-wallet.vercel.app). Click Redeploy. This tells Django CORS to allow requests from your frontend."
+        }
+      ]
+    },
+
+    {
+      "id": 8,
+      "name": "Verification",
+      "steps": [
+        {
+          "id": "8.1",
+          "type": "terminal",
+          "instruction": "Test the backend API is reachable and returning a valid response.",
+          "command": "curl -s https://[YOUR-RAILWAY-DOMAIN].railway.app/api/v1/ | head -c 200"
+        },
+        {
+          "id": "8.2",
+          "type": "manual",
+          "instruction": "Open your Vercel URL in a browser. Open DevTools → Network tab. The login page should render. Confirm no CORS errors appear. Confirm API calls go to your Railway domain, not localhost."
+        },
+        {
+          "id": "8.3",
+          "type": "manual",
+          "instruction": "Log in with the superuser credentials from step 6.7. Confirm the admin dashboard loads, the JWT token appears in localStorage under access_token, and no 401 or 403 errors appear in the network tab."
+        },
+        {
+          "id": "8.4",
+          "type": "manual",
+          "instruction": "Open the Supabase dashboard → Table Editor. Confirm Django tables exist (auth_user, wallets_wallet, students_student, etc.). After logging in, check that no new error rows appear."
+        },
+        {
+          "id": "8.5",
+          "type": "manual",
+          "instruction": "Open Railway → worker service → Logs. Confirm the Celery worker started without errors. The log should show: [celery@...] ready."
+        }
+      ]
+    }
+
+  ],
+
+  "constraints": [
+    "Do not use Docker. Railway, Vercel, Supabase, and Upstash all handle the runtime.",
+    "Do not commit a real .env file. Only .env.example goes in the repo.",
+    "DEBUG must be False in production.",
+    "FRONTEND_URL must be set in Railway before the frontend can make API calls without CORS errors.",
+    "The Celery worker must be a separate Railway service — do not run Celery inside the web dyno."
+  ]
+}
