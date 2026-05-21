@@ -187,7 +187,7 @@ export const downloadIDCard = async (student, qrCodeData, logoUrl = null, passpo
   // Trigger Download
   const dataUrl = canvas.toDataURL('image/png');
   const link = document.createElement('a');
-  link.download = \`ID_Card_\${student.matric_no}.png\`;
+  link.download = `ID_Card_${student.matric_no}.png`;
   link.href = dataUrl;
   link.click();
 };
