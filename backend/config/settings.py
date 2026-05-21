@@ -190,9 +190,13 @@ CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
 ]
-_frontend_url = os.environ.get('FRONTEND_URL', '')
+_frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
 if _frontend_url:
     CORS_ALLOWED_ORIGINS.append(_frontend_url)
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
