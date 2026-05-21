@@ -31,9 +31,10 @@ class PaymentReceiptSerializer(serializers.ModelSerializer):
 
 
 class StudentInfoSerializer(serializers.ModelSerializer):
+    wallet_id = serializers.IntegerField(source='wallet.wallet_id', read_only=True)
     wallet_balance = serializers.DecimalField(max_digits=10, decimal_places=2, source='wallet.balance', read_only=True)
     wallet_status = serializers.CharField(source='wallet.status', read_only=True)
     
     class Meta:
         model = Student
-        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'wallet_balance', 'wallet_status']
+        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'wallet_id', 'wallet_balance', 'wallet_status']
