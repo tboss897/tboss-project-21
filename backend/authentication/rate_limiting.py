@@ -9,11 +9,8 @@ import hashlib
 
 class RateLimiter:
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            password=settings.REDIS_PASSWORD,
+        self.redis_client = redis.from_url(
+            settings.REDIS_URL,
             decode_responses=True
         )
     
@@ -99,11 +96,8 @@ class DeduplicationLock:
     Redis-based deduplication lock to prevent duplicate payment processing.
     """
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            password=settings.REDIS_PASSWORD,
+        self.redis_client = redis.from_url(
+            settings.REDIS_URL,
             decode_responses=True
         )
     
