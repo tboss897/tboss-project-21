@@ -1,0 +1,36 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+*.sqlite3
+
+# Static files (collected by collectstatic)
+staticfiles/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
