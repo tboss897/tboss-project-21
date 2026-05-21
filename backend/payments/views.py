@@ -173,3 +173,24 @@ def payment_receipt(request, transaction_id):
     transaction_obj = get_object_or_404(Transaction, transaction_id=transaction_id)
     serializer = PaymentReceiptSerializer(transaction_obj)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrSeller])
+def payment_list(request):
+    if request.user.role == 'admin':
+        transactions = Transaction.objects.all()
+    else:
+        transactions = Transaction.objects.filter(seller=request.user)
+        
+    # Apply standard ordering
+    transactions = transactions.order_by('-transaction_date')
+    
+    # Optional limit query parameter
+    limit = request.query_params.get('limit')
+    if limit:
+        transactions = transactions[:int(limit)]
+        
+    serializer = PaymentReceiptSerializer(transactions, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
