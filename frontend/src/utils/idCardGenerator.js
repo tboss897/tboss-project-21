@@ -42,7 +42,7 @@ export const downloadIDCard = async (student, qrCodeData, logoUrl = null, passpo
   };
 
   // Pre-load all images
-  const qrUrl = \`https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=\${encodeURIComponent(qrCodeData)}\`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=${encodeURIComponent(qrCodeData)}`;
   const [logoImg, passportImg, qrImg] = await Promise.all([
     loadImage(logoUrl),
     loadImage(passportUrl),
