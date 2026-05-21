@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react';
-import Layout from '../../components/Layout';
+import { useLocation } from 'react-router-dom';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import Select from '../../components/Select';
 import Loading from '../../components/Loading';
 import api from '../../api/axios';
+import { ShieldCheck, Eye, EyeOff, Sparkles } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function Monitoring() {
+  const location = useLocation();
   const [students, setStudents] = useState([]);
-  const [selectedStudent, setSelectedStudent] = useState('');
+  const [selectedWalletId, setSelectedWalletId] = useState('');
   const [dailyLimit, setDailyLimit] = useState('');
   const [monitoringEnabled, setMonitoringEnabled] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -23,108 +25,170 @@ function Monitoring() {
 
   const fetchStudents = async () => {
     try {
-      // TODO: Get linked students from API
-      setFetching(false);
+      const response = await api.get('/students/linked/');
+      setStudents(response.data);
+      
+      // Auto-select from location state if passed
+      if (location.state?.student) {
+        const studentObj = location.state.student;
+        const matched = response.data.find(s => s.student_id === studentObj.student_id);
+        if (matched) {
+          const wId = matched.wallet_id || matched.student_id;
+          setSelectedWalletId(wId.toString());
+          handleStudentChange(wId.toString(), response.data);
+        }
+      }
     } catch (err) {
-      setError('Failed to load students');
+      toast.error('Failed to load linked children list');
+    } finally {
       setFetching(false);
     }
   };
 
-  const handleStudentChange = async (studentId) => {
-    setSelectedStudent(studentId);
-    // TODO: Load student's current monitoring settings
+  const handleStudentChange = async (wId, studentsList = students) => {
+    setSelectedWalletId(wId);
+    if (!wId) {
+      setDailyLimit('');
+      setMonitoringEnabled(false);
+      return;
+    }
+
+    try {
+      // Find wallet id
+      const child = studentsList.find(s => s.wallet_id === parseInt(wId) || s.student_id === parseInt(wId));
+      const targetId = child?.wallet_id || wId;
+
+      const response = await api.get(`/wallets/${targetId}/`);
+      setDailyLimit(response.data.daily_limit || '');
+      setMonitoringEnabled(response.data.monitoring_enabled || false);
+    } catch (err) {
+      toast.error('Failed to load child\'s wallet configurations');
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess(false);
-    setLoading(true);
+    if (!selectedWalletId) {
+      toast.error('Please select a child to configure');
+      return;
+    }
 
+    setLoading(true);
     try {
-      // TODO: Call wallet limit API
-      setSuccess(true);
+      const child = students.find(s => s.wallet_id === parseInt(selectedWalletId) || s.student_id === parseInt(selectedWalletId));
+      const targetId = child?.wallet_id || selectedWalletId;
+
+      await api.put(`/wallets/${targetId}/set-limit/`, {
+        daily_limit: dailyLimit ? parseFloat(dailyLimit) : null,
+        monitoring_enabled: monitoringEnabled,
+      });
+
+      toast.success('Spending control guardrails saved successfully!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update monitoring settings');
+      toast.error(err.response?.data?.error || 'Failed to update spending parameters');
     } finally {
       setLoading(false);
     }
   };
 
-  if (fetching) return <Layout><Loading /></Layout>;
+  if (fetching) {
+    return (
+      <div className="h-[50vh] flex items-center justify-center">
+        <Loading size="lg" text="Retrieving spending guardrails..." />
+      </div>
+    );
+  }
 
   return (
-    <Layout>
-      <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Spending Monitoring</h1>
-        
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-            Monitoring settings updated successfully!
-          </div>
-        )}
-        
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-        
-        <Card title="Configure Spending Limits">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Select
-              label="Select Student"
-              value={selectedStudent}
-              onChange={(e) => handleStudentChange(e.target.value)}
-              required
-            >
-              <option value="">Choose a student...</option>
-              {students.map((student) => (
-                <option key={student.student_id} value={student.wallet_id}>
-                  {student.full_name} - {student.matric_no}
-                </option>
-              ))}
-            </Select>
-            
-            <Input
-              label="Daily Spending Limit (₦)"
-              type="number"
-              step="0.01"
-              value={dailyLimit}
-              onChange={(e) => setDailyLimit(e.target.value)}
-              placeholder="Leave empty for no limit"
-            />
-            
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="monitoring"
-                checked={monitoringEnabled}
-                onChange={(e) => setMonitoringEnabled(e.target.checked)}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <label htmlFor="monitoring" className="ml-2 block text-sm text-gray-900">
-                Enable spending monitoring
-              </label>
-            </div>
-            
-            <Button type="submit" loading={loading}>
-              Save Settings
-            </Button>
-          </form>
-        </Card>
-        
-        <Card title="How Monitoring Works">
-          <div className="space-y-2 text-sm text-gray-600">
-            <p>• Set a daily spending limit to control how much your child can spend</p>
-            <p>• Enable monitoring to receive notifications when spending occurs</p>
-            <p>• View transaction history to track spending patterns</p>
-            <p>• Adjust limits at any time based on your child's needs</p>
-          </div>
-        </Card>
+    <div className="space-y-8">
+      {/* Page header */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title text-gradient">E-Wallet Controls</h1>
+          <p className="page-subtitle font-medium">Establish micro-controls, spending caps, and transactional alerts for your children</p>
+        </div>
       </div>
-    </Layout>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <Card title="Spending Limit Configuration">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Select
+                label="Select Linked Child"
+                value={selectedWalletId}
+                onChange={(e) => handleStudentChange(e.target.value)}
+                required
+              >
+                <option value="">Select a child...</option>
+                {students.map((student) => (
+                  <option key={student.student_id} value={student.wallet_id || student.student_id}>
+                    {student.full_name} ({student.matric_no})
+                  </option>
+                ))}
+              </Select>
+
+              <Input
+                label="Daily Purchase Cap (₦)"
+                type="number"
+                step="1"
+                placeholder="Leave empty for unlimited spending"
+                value={dailyLimit}
+                onChange={(e) => setDailyLimit(e.target.value)}
+              />
+
+              <div className="flex items-center gap-3 p-4 bg-surface-50 rounded-2xl border border-surface-150">
+                <input
+                  type="checkbox"
+                  id="monitoring"
+                  checked={monitoringEnabled}
+                  onChange={(e) => setMonitoringEnabled(e.target.checked)}
+                  className="h-4.5 w-4.5 text-primary-600 focus:ring-accent-500 border-surface-300 rounded-lg cursor-pointer"
+                />
+                <div>
+                  <label htmlFor="monitoring" className="block text-sm font-semibold text-surface-800 cursor-pointer">
+                    Enable Real-time Spending Alerts
+                  </label>
+                  <p className="text-xs text-surface-400">Receive system-generated invoices and instant alerts on every POS terminal transaction.</p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-6 border-t border-surface-100">
+                <Button type="submit" loading={loading} className="w-full sm:w-auto">
+                  Save Guardrails
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+
+        {/* Monitoring instructions */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card title="Guardrails In Action">
+            <div className="space-y-4 text-xs font-semibold text-surface-500">
+              <div className="flex gap-3">
+                <div className="p-2 rounded-xl bg-primary-50 text-primary-600 h-fit">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-surface-700 font-bold mb-1">POS Checkout Enforcement</p>
+                  <p className="leading-relaxed">Canteen POS terminals will automatically reject transactions once a child's cumulative daily spending exceeds this designated limit.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="p-2 rounded-xl bg-success-50 text-success-600 h-fit">
+                  {monitoringEnabled ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </div>
+                <div>
+                  <p className="text-surface-700 font-bold mb-1">Transactional Dispatcher</p>
+                  <p className="leading-relaxed">Enabling spending alerts triggers real-time messaging on payment completion, detailing items purchased and remaining float.</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
   );
 }
 
