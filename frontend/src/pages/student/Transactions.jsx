@@ -1,15 +1,15 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import Card from '../../components/Card';
 import Loading from '../../components/Loading';
 import Table from '../../components/Table';
 import Badge from '../../components/Badge';
 import api from '../../api/axios';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { RefreshCw, Receipt } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function StudentTransactions() {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 

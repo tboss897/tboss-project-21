@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Card from '../../components/Card';
 import Loading from '../../components/Loading';
@@ -6,12 +6,12 @@ import Button from '../../components/Button';
 import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import api from '../../api/axios';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { QrCode, Wallet, RefreshCw, FileText, ArrowUpRight, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function StudentDashboard() {
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [wallet, setWallet] = useState(null);
   const [qrCode, setQrCode] = useState(null);
   

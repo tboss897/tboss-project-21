@@ -1,14 +1,14 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api from '../../api/axios';
-import { AuthContext } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { User, Mail, Phone, MapPin, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function ParentProfile() {
-  const { user, login } = useContext(AuthContext);
+  const { user, login } = useAuth();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
