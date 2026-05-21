@@ -36,6 +36,7 @@ const Layout = () => {
         return [
           { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
           { name: 'Students', path: '/admin/students', icon: Users },
+          { name: 'Parents', path: '/admin/parents', icon: Users },
           { name: 'Sellers/Stores', path: '/admin/sellers', icon: Store },
           { name: 'All Transactions', path: '/admin/transactions', icon: History },
           { name: 'Reports', path: '/admin/reports', icon: FileText },

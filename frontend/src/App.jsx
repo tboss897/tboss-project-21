@@ -29,6 +29,7 @@ import ParentProfile from './pages/parent/Profile';
 // Admin pages
 import AdminDashboard from './pages/admin/Dashboard';
 import Students from './pages/admin/Students';
+import Parents from './pages/admin/Parents';
 import Sellers from './pages/admin/Sellers';
 import AdminTransactions from './pages/admin/Transactions';
 import Reports from './pages/admin/Reports';
@@ -115,6 +116,7 @@ function App() {
           >
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="students" element={<Students />} />
+            <Route path="parents" element={<Parents />} />
             <Route path="sellers" element={<Sellers />} />
             <Route path="transactions" element={<AdminTransactions />} />
             <Route path="reports" element={<Reports />} />

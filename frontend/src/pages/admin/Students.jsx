@@ -7,8 +7,9 @@ import Modal from '../../components/Modal';
 import Input from '../../components/Input';
 import Badge from '../../components/Badge';
 import api from '../../api/axios';
-import { Plus, Users, QrCode, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { Plus, Users, QrCode, ToggleLeft, ToggleRight, Trash2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadIDCard } from '../../utils/idCardGenerator';
 
 function Students() {
   const [students, setStudents] = useState([]);
@@ -83,6 +84,27 @@ function Students() {
     }
   };
 
+  const handleDownloadID = async (student) => {
+    let qrData = '';
+    const toastId = toast.loading('Generating ID Card...');
+    try {
+      try {
+        const response = await api.get(`/students/${student.student_id}/qr/`);
+        qrData = response.data.qr_data;
+      } catch (err) {
+        // Generate if not found
+        const response = await api.post(`/students/${student.student_id}/qr/regenerate/`);
+        qrData = response.data.qr_data;
+      }
+      if (qrData) {
+        downloadIDCard(student, qrData);
+        toast.success('ID Card generated successfully', { id: toastId });
+      }
+    } catch (err) {
+      toast.error('Failed to generate ID card', { id: toastId });
+    }
+  };
+
   const columns = [
     { key: 'student_id', label: 'ID' },
     { 
@@ -116,6 +138,13 @@ function Students() {
       label: 'Actions',
       render: (_, row) => (
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleDownloadID(row)}
+            className="p-1.5 rounded-lg bg-surface-50 text-surface-500 hover:text-primary-600 hover:bg-primary-50 transition"
+            title="Download ID Card"
+          >
+            <Download className="w-4 h-4" />
+          </button>
           <button
             onClick={() => regenerateQR(row.student_id)}
             className="p-1.5 rounded-lg bg-surface-50 text-surface-500 hover:text-accent-600 hover:bg-accent-50 transition"
