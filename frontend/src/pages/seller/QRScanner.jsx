@@ -4,14 +4,16 @@ import Card from '../../components/Card';
 import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api from '../../api/axios';
-import { QrCode, User, Search, ShieldAlert, ArrowRight, CreditCard, Lock } from 'lucide-react';
+import { QrCode, User, Search, ShieldAlert, ArrowRight, CreditCard, Lock, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 function QRScanner() {
   const [qrData, setQrData] = useState('');
   const [matricNo, setMatricNo] = useState('');
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Payment form states
   const [amount, setAmount] = useState('');
@@ -107,10 +109,36 @@ function QRScanner() {
             <Card title="Student Card Verification">
               <form onSubmit={handleScan} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-surface-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <QrCode className="w-4 h-4 text-primary-600" />
-                    <span>Scan QR Card Signature</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-surface-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <QrCode className="w-4 h-4 text-primary-600" />
+                      <span>Scan QR Card</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowScanner(!showScanner)}
+                      className="text-xs font-bold text-primary-600 flex items-center gap-1 hover:text-primary-700 bg-primary-50 px-2 py-1 rounded-lg transition"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      {showScanner ? 'Close Camera' : 'Open Camera'}
+                    </button>
+                  </div>
+                  
+                  {showScanner && (
+                    <div className="mb-4 rounded-xl overflow-hidden border-2 border-primary-200">
+                      <Scanner 
+                        onScan={(result) => {
+                          if (result && result.length > 0) {
+                            setQrData(result[0].rawValue);
+                            setShowScanner(false);
+                            toast.success('QR Code captured!');
+                          }
+                        }}
+                        formats={['qr_code']}
+                      />
+                    </div>
+                  )}
+
                   <Input
                     value={qrData}
                     onChange={(e) => setQrData(e.target.value)}

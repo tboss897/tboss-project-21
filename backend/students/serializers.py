@@ -5,7 +5,7 @@ from .models import Student, QRCode
 class StudentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Student
-        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'email', 'created_at']
+        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'email', 'is_active', 'created_at']
         read_only_fields = ['student_id', 'created_at']
 
 
@@ -40,7 +40,7 @@ class StudentDetailSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Student
-        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'email', 'qr_code', 'created_at']
+        fields = ['student_id', 'full_name', 'matric_no', 'department', 'level', 'email', 'is_active', 'qr_code', 'created_at']
         read_only_fields = ['student_id', 'created_at', 'qr_code']
     
     def get_qr_code(self, obj):

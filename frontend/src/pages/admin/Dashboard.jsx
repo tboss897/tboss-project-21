@@ -166,7 +166,7 @@ function AdminDashboard() {
         {/* Transaction chart */}
         <Card className="lg:col-span-2" title="Transaction Volume Trend">
           <div className="h-[300px] w-full mt-4">
-            <ResponsiveContainer width="100%" h="100%">
+            <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">

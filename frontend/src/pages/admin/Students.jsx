@@ -21,6 +21,7 @@ function Students() {
     department: '',
     level: '',
     email: '',
+    pin: '',
   });
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function Students() {
         department: '',
         level: '',
         email: '',
+        pin: '',
       });
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to register student');
@@ -64,18 +66,11 @@ function Students() {
 
   const toggleStatus = async (student) => {
     try {
-      await api.post(`/students/${student.student_id}/toggle-active/`);
+      await api.put(`/students/${student.student_id}/update/`, { is_active: !student.is_active });
       toast.success(`Student status updated successfully.`);
       fetchStudents();
     } catch (err) {
-      // Fallback update
-      try {
-        await api.patch(`/students/${student.student_id}/`, { is_active: !student.is_active });
-        toast.success(`Student status updated successfully.`);
-        fetchStudents();
-      } catch (innerErr) {
-        toast.error('Failed to update student status');
-      }
+      toast.error('Failed to update student status');
     }
   };
 
@@ -215,6 +210,15 @@ function Students() {
             placeholder="e.g. student@school.com"
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
+            required
+          />
+          <Input
+            label="4-Digit Wallet PIN"
+            type="password"
+            placeholder="e.g. 1234"
+            maxLength={4}
+            value={formData.pin}
+            onChange={(e) => setFormData({...formData, pin: e.target.value})}
             required
           />
 
