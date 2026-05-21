@@ -1,4 +1,4 @@
-export const downloadIDCard = (student, qrCodeData) => {
+export const downloadIDCard = async (student, qrCodeData, logoUrl = null, passportUrl = null) => {
   // Create a canvas
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -8,7 +8,6 @@ export const downloadIDCard = (student, qrCodeData) => {
   canvas.height = 1000;
 
   // 1. Draw Background
-  // Main gradient
   const bgGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   bgGradient.addColorStop(0, '#f8fafc'); // surface-50
   bgGradient.addColorStop(1, '#e2e8f0'); // surface-200
@@ -30,16 +29,49 @@ export const downloadIDCard = (student, qrCodeData) => {
   ctx.lineTo(0, 0);
   ctx.fill();
 
-  // 3. Header Text
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 36px "Inter", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('SMARTSCHOOL', canvas.width / 2, 90);
-  
-  ctx.font = 'bold 20px "Inter", sans-serif';
-  ctx.fillStyle = '#cffafe'; // accent-100
-  ctx.letterSpacing = '4px';
-  ctx.fillText('STUDENT E-WALLET CARD', canvas.width / 2, 130);
+  // Helper to load image
+  const loadImage = (src) => {
+    if (!src) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null); // fail gracefully
+      img.src = src;
+    });
+  };
+
+  // Pre-load all images
+  const qrUrl = \`https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=\${encodeURIComponent(qrCodeData)}\`;
+  const [logoImg, passportImg, qrImg] = await Promise.all([
+    loadImage(logoUrl),
+    loadImage(passportUrl),
+    loadImage(qrUrl)
+  ]);
+
+  // 3. Header Text or Logo
+  if (logoImg) {
+    // Center the logo in the header
+    const logoHeight = 100;
+    const logoWidth = (logoImg.width / logoImg.height) * logoHeight;
+    ctx.drawImage(logoImg, (canvas.width - logoWidth) / 2, 40, logoWidth, logoHeight);
+    
+    ctx.font = 'bold 16px "Inter", sans-serif';
+    ctx.fillStyle = '#cffafe';
+    ctx.letterSpacing = '2px';
+    ctx.textAlign = 'center';
+    ctx.fillText('STUDENT E-WALLET CARD', canvas.width / 2, 160);
+  } else {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('SMARTSCHOOL', canvas.width / 2, 90);
+    
+    ctx.font = 'bold 20px "Inter", sans-serif';
+    ctx.fillStyle = '#cffafe'; // accent-100
+    ctx.letterSpacing = '4px';
+    ctx.fillText('STUDENT E-WALLET CARD', canvas.width / 2, 130);
+  }
 
   // 4. Student Avatar Frame
   ctx.beginPath();
@@ -50,12 +82,31 @@ export const downloadIDCard = (student, qrCodeData) => {
   ctx.strokeStyle = '#4f46e5';
   ctx.stroke();
 
-  // Student Initials in Avatar
-  ctx.fillStyle = '#4f46e5';
-  ctx.font = 'bold 64px "Inter", sans-serif';
-  ctx.textBaseline = 'middle';
-  const initials = student.full_name ? student.full_name.charAt(0).toUpperCase() : 'S';
-  ctx.fillText(initials, canvas.width / 2, 264);
+  // Draw Passport or Initials
+  if (passportImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, 260, 90, 0, Math.PI * 2);
+    ctx.clip();
+    
+    // Draw image centered and covering the circle
+    const size = Math.min(passportImg.width, passportImg.height);
+    const scale = 180 / size;
+    const drawW = passportImg.width * scale;
+    const drawH = passportImg.height * scale;
+    const drawX = (canvas.width / 2) - (drawW / 2);
+    const drawY = 260 - (drawH / 2);
+    
+    ctx.drawImage(passportImg, drawX, drawY, drawW, drawH);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = '#4f46e5';
+    ctx.font = 'bold 64px "Inter", sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
+    const initials = student.full_name ? student.full_name.charAt(0).toUpperCase() : 'S';
+    ctx.fillText(initials, canvas.width / 2, 264);
+  }
 
   // Reset text baseline
   ctx.textBaseline = 'alphabetic';
@@ -63,6 +114,7 @@ export const downloadIDCard = (student, qrCodeData) => {
   // 5. Student Details
   ctx.fillStyle = '#0f172a'; // surface-900
   ctx.font = 'bold 42px "Inter", sans-serif';
+  ctx.textAlign = 'center';
   ctx.fillText(student.full_name || 'Unknown Student', canvas.width / 2, 410);
 
   // Info Box Background
@@ -120,39 +172,22 @@ export const downloadIDCard = (student, qrCodeData) => {
   ctx.fill();
   ctx.shadowColor = 'transparent';
 
-  // Helper to load image
-  const loadImage = (src) => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
-
-  // 7. Load and Draw QR Code
-  // Using the qrserver API
-  const qrUrl = \`https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=\${encodeURIComponent(qrCodeData)}\`;
-  
-  loadImage(qrUrl).then((qrImg) => {
+  // 7. Draw QR Code
+  if (qrImg) {
     ctx.drawImage(qrImg, 195, 670, 210, 210);
+  }
 
-    // Footer
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 14px "Inter", sans-serif';
-    ctx.fillText('Valid for SmartSchool Wallet Purchases Only', canvas.width / 2, 950);
-    ctx.fillText('If found, please return to school administration', canvas.width / 2, 970);
+  // Footer
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#64748b';
+  ctx.font = 'bold 14px "Inter", sans-serif';
+  ctx.fillText('Valid for SmartSchool Wallet Purchases Only', canvas.width / 2, 950);
+  ctx.fillText('If found, please return to school administration', canvas.width / 2, 970);
 
-    // Trigger Download
-    const dataUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.download = \`ID_Card_\${student.matric_no}.png\`;
-    link.href = dataUrl;
-    link.click();
-  }).catch((err) => {
-    console.error('Failed to load QR code image for ID card', err);
-    alert('Failed to generate ID card image.');
-  });
+  // Trigger Download
+  const dataUrl = canvas.toDataURL('image/png');
+  const link = document.createElement('a');
+  link.download = \`ID_Card_\${student.matric_no}.png\`;
+  link.href = dataUrl;
+  link.click();
 };

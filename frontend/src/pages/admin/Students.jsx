@@ -15,6 +15,9 @@ function Students() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showIdModal, setShowIdModal] = useState(false);
+  const [selectedStudentForId, setSelectedStudentForId] = useState(null);
+  const [idFiles, setIdFiles] = useState({ logo: null, passport: null });
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -84,21 +87,34 @@ function Students() {
     }
   };
 
-  const handleDownloadID = async (student) => {
+  const handleDownloadIDClick = (student) => {
+    setSelectedStudentForId(student);
+    setIdFiles({ logo: null, passport: null });
+    setShowIdModal(true);
+  };
+
+  const executeDownloadID = async (e) => {
+    e.preventDefault();
+    if (!selectedStudentForId) return;
+
     let qrData = '';
     const toastId = toast.loading('Generating ID Card...');
     try {
       try {
-        const response = await api.get(`/students/${student.student_id}/qr/`);
+        const response = await api.get(`/students/${selectedStudentForId.student_id}/qr/`);
         qrData = response.data.qr_data;
       } catch (err) {
-        // Generate if not found
-        const response = await api.post(`/students/${student.student_id}/qr/regenerate/`);
+        const response = await api.post(`/students/${selectedStudentForId.student_id}/qr/regenerate/`);
         qrData = response.data.qr_data;
       }
+      
       if (qrData) {
-        downloadIDCard(student, qrData);
+        const logoUrl = idFiles.logo ? URL.createObjectURL(idFiles.logo) : null;
+        const passportUrl = idFiles.passport ? URL.createObjectURL(idFiles.passport) : null;
+        
+        await downloadIDCard(selectedStudentForId, qrData, logoUrl, passportUrl);
         toast.success('ID Card generated successfully', { id: toastId });
+        setShowIdModal(false);
       }
     } catch (err) {
       toast.error('Failed to generate ID card', { id: toastId });
@@ -139,7 +155,7 @@ function Students() {
       render: (_, row) => (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => handleDownloadID(row)}
+            onClick={() => handleDownloadIDClick(row)}
             className="p-1.5 rounded-lg bg-surface-50 text-surface-500 hover:text-primary-600 hover:bg-primary-50 transition"
             title="Download ID Card"
           >
@@ -257,6 +273,59 @@ function Students() {
             </Button>
             <Button type="submit" loading={submitting}>
               Register Profile
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ID Card Generation Modal */}
+      <Modal
+        isOpen={showIdModal}
+        onClose={() => setShowIdModal(false)}
+        title="Generate E-Wallet ID Card"
+      >
+        <form onSubmit={executeDownloadID} className="space-y-5">
+          <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 mb-4">
+            <p className="text-sm font-medium text-primary-900">
+              Generating card for: <span className="font-bold">{selectedStudentForId?.full_name}</span>
+            </p>
+            <p className="text-xs text-primary-700 mt-1">
+              You can optionally upload a school logo and the student's passport photo. If you skip this, the system will use default avatars and text.
+            </p>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">
+                School Logo (Optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setIdFiles({...idFiles, logo: e.target.files[0]})}
+                className="w-full text-sm text-surface-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-surface-700 mb-1">
+                Student Passport Photo (Optional)
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setIdFiles({...idFiles, passport: e.target.files[0]})}
+                className="w-full text-sm text-surface-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-100">
+            <Button variant="outline" type="button" onClick={() => setShowIdModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit">
+              Generate & Download
             </Button>
           </div>
         </form>
