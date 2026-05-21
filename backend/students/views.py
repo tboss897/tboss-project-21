@@ -113,8 +113,10 @@ def link_parent(request):
         )
         
     try:
-        student = Student.objects.get(matric_no=matric_no, wallet__wallet_id=wallet_id)
-    except Student.DoesNotExist:
+        clean_matric = str(matric_no).strip()
+        clean_wallet_id = int(wallet_id)
+        student = Student.objects.get(matric_no__iexact=clean_matric, wallet__wallet_id=clean_wallet_id)
+    except (Student.DoesNotExist, ValueError, TypeError):
         return Response(
             {'error': 'Invalid matriculation number or wallet ID. Please check the details and try again.'},
             status=status.HTTP_404_NOT_FOUND
