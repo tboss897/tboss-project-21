@@ -17,11 +17,6 @@ function StudentDashboard() {
   
   const [loading, setLoading] = useState(true);
   const [showQRModal, setShowQRModal] = useState(false);
-  
-  // Self top-up modal states
-  const [showTopupModal, setShowTopupModal] = useState(false);
-  const [topupAmount, setTopupAmount] = useState('');
-  const [topupLoading, setTopupLoading] = useState(false);
 
   // Derive target student and wallet ID from auth context
   const studentId = user?.student_id || user?.student?.student_id;
@@ -60,31 +55,6 @@ function StudentDashboard() {
       toast.error('Failed to load wallet data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSelfTopup = async (e) => {
-    e.preventDefault();
-    if (parseFloat(topupAmount) < 100) {
-      toast.error('Minimum top-up amount is ₦100.00');
-      return;
-    }
-
-    setTopupLoading(true);
-    try {
-      await api.post(`/wallets/${walletId}/topup/`, {
-        amount: parseFloat(topupAmount),
-        description: 'Student self-topup allowance',
-      });
-
-      toast.success('Wallet funded successfully via secure gateway!');
-      setShowTopupModal(false);
-      setTopupAmount('');
-      loadStudentData();
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to complete top-up');
-    } finally {
-      setTopupLoading(false);
     }
   };
 
@@ -149,7 +119,7 @@ function StudentDashboard() {
 
           {/* Quick Actions Portal */}
           <Card title="Quick Services">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-2">
+            <div className="grid grid-cols-2 gap-4 mt-2">
               <button 
                 onClick={() => setShowQRModal(true)}
                 className="p-5 border border-surface-150 rounded-2xl hover:bg-surface-50 transition-all text-center flex flex-col items-center gap-3 group"
@@ -160,19 +130,9 @@ function StudentDashboard() {
                 <span className="text-xs font-bold text-surface-700">Display QR Card</span>
               </button>
 
-              <button 
-                onClick={() => setShowTopupModal(true)}
-                className="p-5 border border-surface-150 rounded-2xl hover:bg-surface-50 transition-all text-center flex flex-col items-center gap-3 group"
-              >
-                <div className="p-3.5 rounded-xl bg-success-50 text-success-600 group-hover:scale-110 transition duration-200">
-                  <ArrowUpRight className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-bold text-surface-700">Self-Topup Wallet</span>
-              </button>
-
               <Link 
                 to="/student/transactions"
-                className="p-5 border border-surface-150 rounded-2xl hover:bg-surface-50 transition-all text-center flex flex-col items-center gap-3 group sm:col-span-1 col-span-2"
+                className="p-5 border border-surface-150 rounded-2xl hover:bg-surface-50 transition-all text-center flex flex-col items-center gap-3 group"
               >
                 <div className="p-3.5 rounded-xl bg-purple-50 text-purple-600 group-hover:scale-110 transition duration-200">
                   <FileText className="w-5 h-5" />
@@ -237,40 +197,6 @@ function StudentDashboard() {
             </Button>
           </div>
         </div>
-      </Modal>
-
-      {/* Self Topup Modal */}
-      <Modal
-        isOpen={showTopupModal}
-        onClose={() => setShowTopupModal(false)}
-        title="E-Wallet Self-Topup"
-      >
-        <form onSubmit={handleSelfTopup} className="space-y-5">
-          <div className="p-4 rounded-2xl bg-surface-50 border border-surface-150 flex items-center gap-3 text-xs text-surface-500 leading-relaxed">
-            <ShieldCheck className="w-5 h-5 text-success-600 shrink-0" />
-            <span>Complete top-ups using simulated Paystack secure transaction channels.</span>
-          </div>
-
-          <Input
-            label="Top-Up Amount (₦)"
-            type="number"
-            min="100"
-            step="100"
-            placeholder="Minimum 100"
-            value={topupAmount}
-            onChange={(e) => setTopupAmount(e.target.value)}
-            required
-          />
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-surface-100">
-            <Button variant="outline" type="button" onClick={() => setShowTopupModal(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" loading={topupLoading}>
-              Credit Wallet
-            </Button>
-          </div>
-        </form>
       </Modal>
     </div>
   );

@@ -133,7 +133,7 @@ function StudentProfile() {
                 </div>
                 <div>
                   <p className="text-surface-700 font-bold mb-1">Student E-Wallet Holder</p>
-                  <p className="leading-relaxed">This session carries student authorization levels restricted to self-topup payments, QR card projection, and checkout receipts.</p>
+                  <p className="leading-relaxed">This session carries student authorization levels restricted to QR card projection and checkout receipts.</p>
                 </div>
               </div>
             </div>

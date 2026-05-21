@@ -78,7 +78,7 @@ function Monitoring() {
       const child = students.find(s => s.wallet_id === parseInt(selectedWalletId) || s.student_id === parseInt(selectedWalletId));
       const targetId = child?.wallet_id || selectedWalletId;
 
-      await api.put(`/wallets/${targetId}/set-limit/`, {
+      await api.put(`/wallets/${targetId}/limit/`, {
         daily_limit: dailyLimit ? parseFloat(dailyLimit) : null,
         monitoring_enabled: monitoringEnabled,
       });
