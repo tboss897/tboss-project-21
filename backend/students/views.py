@@ -139,3 +139,18 @@ def link_parent(request):
         status=status.HTTP_200_OK
     )
 
+
+@api_view(['GET'])
+@permission_classes([IsParent])
+def parent_linked_students(request):
+    """
+    Get all student profiles linked to this parent.
+    """
+    linked_relations = ParentStudent.objects.filter(parent=request.user)
+    students = [rel.student for rel in linked_relations]
+    
+    from payments.serializers import StudentInfoSerializer
+    serializer = StudentInfoSerializer(students, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
