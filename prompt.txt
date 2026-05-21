@@ -419,4 +419,57 @@ Test responsive layout (admin = desktop, student/parent = mobile-first)
 Manual Verification
 Walk through complete payment flow: admin registers student → parent funds wallet → seller scans QR → payment processed → parent sees notification
 Verify all ₦ currency formatting
-Verify inactivity timeout (10 min)
+Verify inactivity timeout (10 min)           
+
+
+SmartSchool Wallet — Task Tracker
+Phase 1: Backend Foundation Reset
+ 1.1 Fix authentication/models.py — Use Django's password system, remove inline profile fields
+ 1.2 Create authentication/profiles.py — ParentProfile + SellerProfile models
+ 1.3 Create students/parent_student.py — ParentStudent linking model
+ 1.4 Modify students/models.py — Add optional User FK for web portal login
+ 1.5 Modify wallets/models.py — Add select_for_update(), add created_at
+ 1.6 Rewrite authentication/views.py — Direct JWT generation, login lockout
+ 1.7 Fix authentication/serializers.py — Update for new model structure
+ 1.8 Fix config/settings.py — Add missing settings (REDIS_PASSWORD, notification configs)
+ 1.9 Fix requirements.txt — Remove mysqlclient, add Pillow
+ 1.10 Reset migrations and verify makemigrations + migrate pass
+Phase 2: Complete Backend API
+ 2.1 Student detail endpoint + QR regenerate
+ 2.2 Student auth (matric + PIN login)
+ 2.3 Wallet topup — allow student self-topup
+ 2.4 Daily spending limit enforcement
+ 2.5 PIN lockout tracking
+ 2.6 Enhanced admin dashboard stats
+ 2.7 Reports endpoint with CSV export
+ 2.8 Wire up notification triggers
+Phase 3: Web Frontend — Design System & Core
+ 3.1 Update Tailwind config with branding colors
+ 3.2 Rebuild index.css with design tokens + Inter font
+ 3.3 Add missing npm dependencies
+ 3.4 Rebuild shared component library
+ 3.5 Add ProtectedRoute, hooks, AuthContext improvements
+ 3.6 Update App.jsx with route guards + providers
+Phase 4: Admin Screens
+ 4.1 Admin Dashboard (KPIs, charts, activity feed)
+ 4.2 Student Management (table, register modal, filters)
+ 4.3 Student Detail page
+ 4.4 Seller Management
+ 4.5 Transaction Monitor
+ 4.6 Reports page
+ 4.7 Settings page
+Phase 5: Seller (Store) Screens
+ 5.1 QR Scanner page
+ 5.2 Manual Entry page
+ 5.3 Receipt overlay
+ 5.4 Transaction History
+Phase 6: Student & Parent Screens
+ 6.1 Student Dashboard (QR + balance + fund wallet)
+ 6.2 Student Fund Wallet page
+ 6.3 Student Transactions
+ 6.4 Student Profile
+ 6.5 Parent Dashboard
+ 6.6 Parent Fund Wallet
+ 6.7 Parent Transactions
+ 6.8 Parent Monitoring
+ 6.9 Parent Profile
