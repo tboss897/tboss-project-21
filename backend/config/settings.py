@@ -92,11 +92,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database — reads DATABASE_URL env var (set in Railway)
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+db_url = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "db.sqlite3"}'),
+        default=db_url,
         conn_max_age=600,
-        ssl_require=not DEBUG,
+        ssl_require=not DEBUG and db_url.startswith(('postgres://', 'postgresql://')),
     )
 }
 
