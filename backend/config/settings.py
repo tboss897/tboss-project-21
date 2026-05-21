@@ -185,21 +185,11 @@ SIMPLE_JWT = {
 # CORS Configuration
 APPEND_SLASH = False
 
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-]
-_frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
-if _frontend_url:
-    CORS_ALLOWED_ORIGINS.append(_frontend_url)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = False
 
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
-]
-
-CORS_ALLOW_CREDENTIALS = True
-
+# Fallback for older versions just in case
+CORS_ORIGIN_ALLOW_ALL = True
 
 # Redis & Celery Configuration
 # Uses a single REDIS_URL (rediss:// for TLS from Upstash)
